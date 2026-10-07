@@ -1,0 +1,57 @@
+name: geo-prophet-public
+services:
+  db:
+    build: ./deploy/postgres
+    environment:
+      POSTGRES_DB: geoprophet
+      POSTGRES_USER: geoprophet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a local demo password in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geoprophet -d geoprophet"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  migrate:
+    build: ./deploy/postgres
+    entrypoint: ["/bin/sh", "/migrate.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: geoprophet
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local demo password in .env}
+      PGDATABASE: geoprophet
+    volumes:
+      - ./migrations:/migrations:ro
+      - ./deploy/postgres/migrate.sh:/migrate.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    build: ./api
+    environment:
+      API_ADDR: :8080
+      GIN_MODE: release
+      DATABASE_URL: postgres://geoprophet:${POSTGRES_PASSWORD:?Set a local demo password in .env}@db:5432/geoprophet?sslmode=disable
+      CORS_ALLOWED_ORIGINS: http://localhost:3100
+      ADMIN_LOGINS: ""
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:3100:80"
+    depends_on:
+      - api
+  importer:
+    profiles: ["operations"]
+    build: ./api
+    entrypoint: ["/importer"]
+    environment:
+      DATABASE_URL: postgres://geoprophet:${POSTGRES_PASSWORD:?Set a local demo password in .env}@db:5432/geoprophet?sslmode=disable
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+volumes:
+  postgres-data:

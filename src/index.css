@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans TC", ui-sans-serif, system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --color-brand-50: #eef6f7;
+  --color-brand-100: #d5e9eb;
+  --color-brand-200: #acd3d7;
+  --color-brand-300: #7fb9bf;
+  --color-brand-500: #2b8691;
+  --color-brand-600: #1f6f78;
+  --color-brand-700: #185a61;
+  --color-canvas: #f6f7f9;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background-color: var(--color-canvas);
+  color: #334155;
+  font-feature-settings: "tnum";
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+/* Range inputs share the brand accent. */
+input[type="range"] {
+  accent-color: var(--color-brand-600);
+}

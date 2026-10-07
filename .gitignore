@@ -1,0 +1,32 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+api/server
+.idea/
+.env*
+!.env.example
+
+# database dumps (see docs/BACKUP.md)
+backups/
+data/
+datasets/
+.aws/
+.ssh/
+.agents/
+.codex/
+.playwright/
+*.dump
+*.sql.gz
+*.pem
+*.key
+
+# archify checkout and delivery sidecars (see scripts/architecture.mjs)
+.cache/
+docs/architecture/*.delivery.json
+docs/architecture/*.visual-check.*
+docs/architecture/*.browser-check.json
+docs/architecture/*.finalize*.json
+docs/architecture/.runtime.check.architecture.json

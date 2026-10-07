@@ -1,0 +1,6 @@
+{
+  "name": "GeoProphet Taiwan",
+  "description": "一個用地圖與成交資料呈現區域房價透明度的資料平台，讓使用者能快速理解不同區域的價格、趨勢與生活圈差異。",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
