@@ -2,20 +2,50 @@
 
 本公開版包含完整來源下載與匯入程式，但不包含官方資料檔案或資料庫 dump。預設 Demo 不下載任何來源資料，測試使用合成 fixture。
 
-## Flow
+## 實價登錄匯入主路徑
 
 ```mermaid
 flowchart TD
-    Source[Government / TDX / OSM adapters] --> Download[Download / parse source]
-    Download --> Normalize[Dates / text / units / addresses]
-    Normalize --> Locate[Geocode and precision flags]
-    Locate --> Copy[COPY into staging]
-    Copy --> Upsert[Transactional upsert / replace]
-    Upsert --> Runs[Import statistics and status]
-    Runs --> Coverage[Coverage and quality rules]
-    Coverage --> Alerts[Persistent notification queue]
-    Alerts --> Retry[Webhook delivery / backoff]
+    Trigger["CLI 或選配同步工作"] --> Download["下載季度 / 本期 ZIP"]
+    Download --> Start["StartRun：建立 running 紀錄"]
+    Start --> Parse["解析縣市 CSV"]
+    Parse --> Normalize["日期 / 文字 / 坪數 / 金額正規化"]
+    Normalize --> Flags["特殊交易與排除標記"]
+    Flags --> Locate["門牌比對與定位精度"]
+    Locate --> Copy["交易內 COPY staging"]
+    Copy --> Upsert["依來源編號 upsert"]
+    Upsert --> Commit["提交資料交易"]
+    Commit --> Success["FinishRun：succeeded 與統計"]
+    Parse -.->|失敗| Failure["FinishRun：failed 與錯誤"]
+    Copy -.->|回滾| Failure
+    Upsert -.->|回滾| Failure
+    Success --> Runs[("import_runs")]
+    Failure --> Runs
 ```
+
+本圖以實價登錄匯入為例，不代表所有來源都走 CSV 或 upsert：門牌、設施與軌道資料有整批替換路徑。ZIP 下載／開啟發生在逐縣市 `StartRun` 前，因此下載失敗不保證已有該批的 `import_runs`；已啟動的批次才由 `FinishRun` 記錄結果。定位失敗可計入統計，不一定使整批失敗。staging 是暫存寫入機制，不是持久 raw layer。
+
+原始碼入口：[匯入服務](../api/internal/importer/service.go)、[COPY 與寫入](../api/internal/infra/postgres/import_store.go)、[地理定位](../api/internal/geocode/matcher.go)。
+
+## 品質告警與重試
+
+```mermaid
+flowchart TD
+    Tick["選配常駐 importer 檢查"] --> Snapshot["讀取 import_runs 品質快照"]
+    Snapshot --> Assess["AssessQuality：筆數 / 定位率 / 涵蓋"]
+    Assess --> Queue["以 run_id + code 去重排入送達表"]
+    Queue --> Resolve["將已恢復且未送達的告警標為 resolved"]
+    Resolve --> Due["讀取到期且仍有效的通知"]
+    Due --> Send["HTTPS Webhook"]
+    Send --> Result{"送達結果"}
+    Result -->|成功| Sent["保存 sent_at 與 attempts"]
+    Result -->|失敗| Backoff["保存錯誤類別與 next_attempt_at"]
+    Backoff -.->|後續檢查再試| Due
+```
+
+退避由 60 秒起，最長一小時。接收成功後、`sent_at` 保存前若程序中斷，通知可能重送；接收端應依 `run_id + code` 去重，不宣稱 exactly-once。未設定 Webhook 不對外通知，公開 Compose 預設也不啟動常駐 importer。
+
+原始碼入口：[品質規則](../api/internal/usecase/quality.go)、[送達協調](../api/internal/usecase/quality_webhook.go)、[持久化與退避](../api/internal/infra/postgres/quality_alerts.go)。
 
 ## Existing behaviours
 

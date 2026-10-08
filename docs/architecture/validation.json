@@ -1,0 +1,40 @@
+{
+  "generator": "Archify 2.17",
+  "diagram_type": "architecture",
+  "specification": {
+    "sha256": "ce0b67d6118f353e3d12aef8674576fbb68cf9b5d245e735152f0928defc6255",
+    "bytes": 3991
+  },
+  "artifact": {
+    "sha256": "ce549a0f1bce5ce2db719a69db15625cf28796efed8b207bb6e4562b61a316d2",
+    "bytes": 709450
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  },
+  "evidence": {
+    "verified": true,
+    "repository": "https://github.com/karevin07/geo-prophet-public",
+    "revision": "7fc4f2f3f3c05a00aa5051a0c35f80d145dd8935",
+    "references": 7
+  },
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "correction_rounds": 1,
+  "browser_scope": {
+    "viewports": ["1440x900", "1600x1000", "1920x1080", "2048x1320"],
+    "themes_captured": ["light", "dark"],
+    "containment": "passed",
+    "artifact_sha256": "ce549a0f1bce5ce2db719a69db15625cf28796efed8b207bb6e4562b61a316d2"
+  },
+  "manual_review": {
+    "reviewer": "image-capable assistant",
+    "scope": "Light and dark screenshots at 1440x900 and 2048x1320; no clipping, crossing labels, or excessive lower empty band.",
+    "interaction_smoke": ["four guided views", "public source link", "export menu opens"]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "GeoProphet 公開版架構",
+    "quality_profile": "showcase",
+    "repository": { "url": "https://github.com/karevin07/geo-prophet-public", "revision": "7fc4f2f3f3c05a00aa5051a0c35f80d145dd8935" },
+    "viewBox": [1060, 470],
+    "views": [
+      { "id": "overview", "label": "系統總覽", "focus": ["web", "api", "store", "sources", "ingest", "quality", "webhook"], "note": "公開版的責任邊界；外部資料需明確匯入，前端快速體驗另使用 mock。" },
+      { "id": "ingestion", "label": "資料匯入", "focus": ["sources", "ingest", "store"], "note": "Go importer 下載、解析與定位，透過交易寫入處理後資料。原始下載檔尚未持久保存。" },
+      { "id": "queries", "label": "查詢分析", "focus": ["web", "api", "store"], "note": "React 經 Gin API 與 repository 查詢 PostGIS；SQL 彙總與 Go H3 聚合支援地圖及研究工具。" },
+      { "id": "quality-view", "label": "品質告警", "focus": ["store", "quality", "webhook"], "note": "選配 importer 常駐工作檢查品質與持久化送達狀態，再以 HTTPS 傳送 Webhook；公開 Compose 預設不啟用。" }
+    ]
+  },
+  "components": [
+    { "id": "sources", "type": "external", "label": "外部資料來源", "sublabel": "實價登錄 · TDX · OSM · 門牌", "pos": [380, 40], "size": [230, 80], "sources": [{ "path": "api/internal/opendata/client.go", "label": "來源下載" }] },
+    { "id": "ingest", "type": "backend", "label": "Go Importer", "sublabel": "解析 · 正規化 · 地理定位", "pos": [780, 40], "size": [230, 80], "sources": [{ "path": "api/internal/importer/service.go", "label": "匯入服務" }] },
+    { "id": "web", "type": "frontend", "label": "React / Vite", "sublabel": "地圖 · 圖表 · 區域研究", "pos": [40, 190], "size": [210, 80], "sources": [{ "path": "src/App.tsx", "label": "前端入口" }] },
+    { "id": "api", "type": "backend", "label": "Gin API", "sublabel": "Use cases · Repository", "pos": [380, 190], "size": [230, 80], "sources": [{ "path": "api/internal/delivery/http/router.go", "label": "API 路由" }, { "path": "api/internal/usecase/transaction.go", "label": "查詢規則" }] },
+    { "id": "store", "type": "database", "label": "PostgreSQL / PostGIS", "sublabel": "處理後資料 · 匯入紀錄", "pos": [780, 190], "size": [230, 80], "sources": [{ "path": "migrations/000002_create_transactions.sql", "label": "核心資料表" }] },
+    { "id": "quality", "type": "backend", "label": "品質檢核與通知", "sublabel": "Importer · 持久化重試", "pos": [780, 340], "size": [230, 80], "sources": [{ "path": "api/internal/usecase/quality_webhook.go", "label": "品質通知" }] },
+    { "id": "webhook", "type": "external", "label": "Webhook 接收端", "sublabel": "選配 · 接收方需去重", "pos": [380, 340], "size": [230, 80] }
+  ],
+  "connections": [
+    { "id": "fetch", "from": "sources", "to": "ingest", "label": "下載與解析" },
+    { "id": "write", "from": "ingest", "to": "store", "label": "批次寫入與紀錄", "labelAt": [895, 134] },
+    { "id": "request", "from": "web", "to": "api", "label": "HTTP / JSON", "variant": "emphasis" },
+    { "id": "query", "from": "api", "to": "store", "label": "空間查詢與彙總", "variant": "emphasis" },
+    { "id": "inspect", "from": "store", "to": "quality", "label": "檢查紀錄與送達狀態", "labelAt": [895, 284] },
+    { "id": "notify", "from": "quality", "to": "webhook", "label": "HTTPS / 退避重試", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "公開展示邊界", "items": ["Mock 不需 API 金鑰；真實匯入需自行設定。", "圖示為功能責任，不是正式部署拓撲。"] },
+    { "dot": "emerald", "title": "資料工程取捨", "items": ["Processed data 已落地；raw 保存尚未實作。", "SQL 即時彙總；通知可能重送，不宣稱 exactly-once。"] }
+  ]
+}

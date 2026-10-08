@@ -6,6 +6,33 @@ A Taiwanese real-estate data engineering and geospatial analytics project. Go in
 
 This is a standalone public showcase of the development project. It does not include the original development history, production configuration, database backups, or downloaded official datasets. Public CSV fixtures and TDX loader tests use synthetic scenarios; their values are not actual market data or investment advice.
 
+## Architecture overview
+
+```mermaid
+flowchart TB
+    Sources["External sources: MOI / TDX / OSM / Address data"]
+    subgraph Data["Data Engineering"]
+        Importer["Go Importer: parse / normalize / geocode"]
+        DB[("PostgreSQL / PostGIS: processed data")]
+        Runs["Import records / Quality checks"]
+        Importer -->|Transactional batch writes| DB
+        Importer -->|Success and failure statistics| Runs
+    end
+    subgraph Backend["Backend"]
+        API["Gin API / Use cases / Repository"]
+    end
+    subgraph Frontend["Frontend"]
+        Web["React / Vite / MapLibre / Deck.gl / Charts"]
+    end
+    Sources -->|Explicit ingestion| Importer
+    Web -->|HTTP / JSON| API
+    API -->|Spatial queries and aggregation| DB
+```
+
+This diagram describes responsibilities in database-backed mode, not a production deployment topology. External sources indicate integration capabilities, not bundled datasets. The quick-start frontend mock bypasses Gin and PostgreSQL. Public Compose does not enable synchronization by default.
+
+[Architecture and data model](ARCHITECTURE.md) · [Pipeline diagrams](docs/DATA_IMPORT.md) · [Archify interactive diagram and viewing instructions](docs/architecture/README.md)
+
 ## Engineering highlights
 
 | Area | Implementation and reading guide |

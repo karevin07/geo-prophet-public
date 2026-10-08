@@ -6,6 +6,33 @@
 
 這是開發專案的獨立公開展示版本，不包含原始開發歷史、正式環境設定、資料庫備份或下載的官方資料。公開版測試 CSV 與 TDX loader 測試使用合成案例；數值不是實際行情或投資建議。
 
+## 架構總覽
+
+```mermaid
+flowchart TB
+    Sources["外部來源：實價登錄 / TDX / OSM / 門牌"]
+    subgraph Data["Data Engineering"]
+        Importer["Go Importer：解析 / 正規化 / 定位"]
+        DB[("PostgreSQL / PostGIS：處理後資料")]
+        Runs["匯入紀錄 / 品質檢核"]
+        Importer -->|交易式批次寫入| DB
+        Importer -->|成功與失敗統計| Runs
+    end
+    subgraph Backend["Backend"]
+        API["Gin API / Use cases / Repository"]
+    end
+    subgraph Frontend["Frontend"]
+        Web["React / Vite / MapLibre / Deck.gl / 圖表"]
+    end
+    Sources -->|明確執行匯入| Importer
+    Web -->|HTTP / JSON| API
+    API -->|空間查詢與彙總| DB
+```
+
+此圖呈現資料庫模式的功能責任，不是正式部署拓撲。外部來源代表串接能力，repo 不附帶官方資料；快速體驗另走前端 mock，不經 Gin 或 PostgreSQL。公開 Compose 不預設啟動同步。
+
+[深入架構與資料模型](ARCHITECTURE.md) · [Pipeline 詳圖](docs/DATA_IMPORT.md) · [Archify 互動圖與開啟方式](docs/architecture/README.md)
+
 ## 工程亮點
 
 | 主題 | 實作與閱讀入口 |
