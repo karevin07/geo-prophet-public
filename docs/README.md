@@ -1,6 +1,6 @@
 # Documentation
 
-- [Architecture](../ARCHITECTURE.md)：責任邊界、資料模型、可靠性與技術取捨。
+- [Architecture](../ARCHITECTURE.md)：架構圖、核心資料關係與查詢時序圖。
 - [Interactive Architecture](architecture/README.md)：Archify 四個視角、public 原始碼連結與本機開啟方式。
 - [Data Pipeline](DATA_IMPORT.md)：來源、解析、COPY／upsert、同步與品質。
 - [HTTP API](API.md)：完整參數與資料口徑；沒有匯入資料的端點可能回傳空值。

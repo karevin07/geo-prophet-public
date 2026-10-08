@@ -8,30 +8,12 @@
 
 ## 架構總覽
 
-```mermaid
-flowchart TB
-    Sources["外部來源：實價登錄 / TDX / OSM / 門牌"]
-    subgraph Data["Data Engineering"]
-        Importer["Go Importer：解析 / 正規化 / 定位"]
-        DB[("PostgreSQL / PostGIS：處理後資料")]
-        Runs["匯入紀錄 / 品質檢核"]
-        Importer -->|交易式批次寫入| DB
-        Importer -->|成功與失敗統計| Runs
-    end
-    subgraph Backend["Backend"]
-        API["Gin API / Use cases / Repository"]
-    end
-    subgraph Frontend["Frontend"]
-        Web["React / Vite / MapLibre / Deck.gl / 圖表"]
-    end
-    Sources -->|明確執行匯入| Importer
-    Web -->|HTTP / JSON| API
-    API -->|空間查詢與彙總| DB
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/architecture-dark.png">
+  <img src="docs/architecture/architecture-light.png" alt="GeoProphet 架構：Go 資料匯入、PostgreSQL／PostGIS、Gin API、React 視覺化與選配品質告警">
+</picture>
 
-此圖呈現資料庫模式的功能責任，不是正式部署拓撲。外部來源代表串接能力，repo 不附帶官方資料；快速體驗另走前端 mock，不經 Gin 或 PostgreSQL。公開 Compose 不預設啟動同步。
-
-[深入架構與資料模型](ARCHITECTURE.md) · [Pipeline 詳圖](docs/DATA_IMPORT.md) · [Archify 互動圖與開啟方式](docs/architecture/README.md)
+由 Archify 匯出；呈現資料庫模式的責任邊界，快速體驗另使用 mock，外部匯入與通知需自行設定。[互動版與開啟方式](docs/architecture/README.md)
 
 ## 工程亮點
 

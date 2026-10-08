@@ -8,30 +8,12 @@ This is a standalone public showcase of the development project. It does not inc
 
 ## Architecture overview
 
-```mermaid
-flowchart TB
-    Sources["External sources: MOI / TDX / OSM / Address data"]
-    subgraph Data["Data Engineering"]
-        Importer["Go Importer: parse / normalize / geocode"]
-        DB[("PostgreSQL / PostGIS: processed data")]
-        Runs["Import records / Quality checks"]
-        Importer -->|Transactional batch writes| DB
-        Importer -->|Success and failure statistics| Runs
-    end
-    subgraph Backend["Backend"]
-        API["Gin API / Use cases / Repository"]
-    end
-    subgraph Frontend["Frontend"]
-        Web["React / Vite / MapLibre / Deck.gl / Charts"]
-    end
-    Sources -->|Explicit ingestion| Importer
-    Web -->|HTTP / JSON| API
-    API -->|Spatial queries and aggregation| DB
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/architecture-dark.png">
+  <img src="docs/architecture/architecture-light.png" alt="GeoProphet architecture: Go ingestion, PostgreSQL/PostGIS, Gin API, React visualization, and optional quality alerts">
+</picture>
 
-This diagram describes responsibilities in database-backed mode, not a production deployment topology. External sources indicate integration capabilities, not bundled datasets. The quick-start frontend mock bypasses Gin and PostgreSQL. Public Compose does not enable synchronization by default.
-
-[Architecture and data model](ARCHITECTURE.md) · [Pipeline diagrams](docs/DATA_IMPORT.md) · [Archify interactive diagram and viewing instructions](docs/architecture/README.md)
+Exported from Archify (diagram labels are in Traditional Chinese). This shows database-backed responsibilities; the quick start uses mock data, while ingestion and notifications require configuration. [Interactive version and viewing instructions](docs/architecture/README.md)
 
 ## Engineering highlights
 
