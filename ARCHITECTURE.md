@@ -2,14 +2,15 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/architecture-dark.png">
-  <img src="docs/architecture/architecture-light.png" alt="GeoProphet 資料工程、後端與前端責任邊界">
+  <img src="docs/architecture/architecture-light.png" alt="GeoProphet 的資料匯入、API 與地圖架構">
 </picture>
 
-[互動版](docs/architecture/README.md) · [匯入與告警流程](docs/DATA_IMPORT.md) · [API](docs/API.md)
+[開啟互動圖](docs/architecture/README.md) · [資料匯入與告警](docs/DATA_IMPORT.md) · [API](docs/API.md)
 
-## 核心資料關係
+<details>
+<summary>資料表關係</summary>
 
-外鍵節選；完整結構見 [migrations](migrations/)。
+下圖只列部分外鍵。完整的資料表定義在 [migrations](migrations/)。
 
 ```mermaid
 erDiagram
@@ -52,9 +53,12 @@ erDiagram
     }
 ```
 
-交易的 `import_run_id` 可為 NULL；交易與車站距離表的 `transaction_id` 僅是邏輯關聯，未畫成外鍵。
+交易的 `import_run_id` 可以是 NULL。車站距離表雖然有 `transaction_id`，但沒有對交易表設定外鍵，因此圖中不畫這條線。
 
-## H3 查詢流程
+</details>
+
+<details>
+<summary>H3 查詢流程</summary>
 
 ```mermaid
 sequenceDiagram
@@ -76,11 +80,16 @@ sequenceDiagram
     Web->>Web: Render Deck.gl layer
 ```
 
-H3 在 Go 聚合；行情與區域比較主要由 SQL 彙總。Mock 不走此流程。
+這是使用資料庫時的 H3 查詢：Go 計算蜂巢統計，行情與區域比較則主要由 SQL 計算。本機 mock 不會走這條路徑。
 
-## 必要限制
+</details>
 
-- 已持久保存 processed data；raw 保存、重播與完整欄位級 lineage 尚未實作。
-- 總覽是功能責任圖，非正式部署拓撲；公開環境預設不啟動同步。見 [存取邊界](docs/ACCESS_BOUNDARY.md)。
-- Webhook 可能重送；資料缺口不等於零交易。見 [品質與匯入說明](docs/DATA_IMPORT.md)。
-- 區界為近似值、距離為直線距離；研究指標不是未來報酬預測。
+## 目前沒做的事
+
+資料庫保存處理後的資料，沒有保存原始下載檔，因此還不能從已保存的原始檔重播匯入。`import_runs` 記錄批次結果，不追蹤每個欄位的來源與變更。
+
+## 看圖與數據時要注意
+
+- 圖中是程式之間的關係，不是正式部署配置。本機預設不啟動同步，管理端設定見 [存取說明](docs/ACCESS_BOUNDARY.md)。
+- Webhook 可能重送；沒有匯入某個月份，也不代表當月沒有成交。見 [資料匯入](docs/DATA_IMPORT.md)。
+- 行政區界線是近似值，車站距離是直線距離。歷史行情不能當作未來報酬。

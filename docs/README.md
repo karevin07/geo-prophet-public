@@ -1,12 +1,12 @@
-# Documentation
+# 文件
 
-- [Architecture](../ARCHITECTURE.md)：架構圖、核心資料關係與查詢時序圖。
-- [Interactive Architecture](architecture/README.md)：Archify 四個視角、public 原始碼連結與本機開啟方式。
-- [Data Pipeline](DATA_IMPORT.md)：來源、解析、COPY／upsert、同步與品質。
-- [HTTP API](API.md)：完整參數與資料口徑；沒有匯入資料的端點可能回傳空值。
-- [Map Guide](MAP_GUIDE.md)：地圖、分組導覽與投資分析的使用方式。
-- [Data Sources](DATA_SOURCES.md)：合成 fixture、第三方授權與署名。
-- [Access Boundary](ACCESS_BOUNDARY.md)：公開展示的管理端限制。
-- [Public Release](PUBLIC_RELEASE.md)：單向發布與公開前檢核。
+- [架構](../ARCHITECTURE.md)：系統圖、資料表關係與查詢流程。
+- [互動架構圖](architecture/README.md)：怎麼開啟和更新 Archify 圖檔。
+- [資料匯入](DATA_IMPORT.md)：匯入指令、處理流程與品質告警。
+- [API](API.md)：參數、回傳格式與計算方式。
+- [操作指南](MAP_GUIDE.md)：地圖與各分析頁的用法。
+- [資料來源](DATA_SOURCES.md)：測試資料、來源授權與署名。
+- [存取設定](ACCESS_BOUNDARY.md)：管理頁的權限與本機連線限制。
+- [發布方式](PUBLIC_RELEASE.md)：哪些檔案可以同步到這份 repo。
 
-需要快速體驗時，先依 [README](../README.md) 啟動 mock 模式。
+本機啟動方式在 [README](../README.md)。
