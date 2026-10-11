@@ -6,9 +6,11 @@ GeoProphet API 由 Gin 提供，預設監聽 `:8080`。Docker 部署時瀏覽器
 
 ## Base URL
 
-- Vite 開發環境：`http://localhost:3000/api/v1`
-- Docker：`http://<APP_BIND_HOST>:<APP_PORT>/api/v1`
+- Vite（`make dev-web-api`）：`http://localhost:3100/api/v1`
+- Docker（`make docker`）：`http://localhost:3100/api/v1`
 - 直接呼叫 API：`http://localhost:8080/api/v1`
+
+`make dev-web` 使用前端合成資料，不會呼叫 Go API。以下 cURL 範例需先啟動 Docker，或搭配執行 `make dev-api` 與 `make dev-web-api`；後者由 Go 提供合成資料。直接執行 `npm run dev` 的預設埠號則是 3000。
 
 ## 共用篩選參數
 
@@ -31,7 +33,9 @@ GeoProphet API 由 Gin 提供，預設監聽 `:8080`。Docker 部署時瀏覽器
 
 ## 後台
 
-後台 API 位於 `/api/v1/admin/*`，只接受 `.env` 的 `ADMIN_LOGINS` 中的 Tailscale 帳號。身分取自 `tailscale serve` 加上的 `Tailscale-User-Login` 標頭（見 [ACCESS_BOUNDARY.md](ACCESS_BOUNDARY.md#後台)）；其他人得到 `403 forbidden`，未使用資料庫時為 `503 not_available`。
+後台 API 位於 `/api/v1/admin/*`，只接受 API 環境變數 `ADMIN_LOGINS` 中的 Tailscale 帳號。身分取自可信的 `tailscale serve` proxy 加上的 `Tailscale-User-Login` 標頭（見 [ACCESS_BOUNDARY.md](ACCESS_BOUNDARY.md#後台)）；其他人得到 `403 forbidden`，未使用資料庫時為 `503 not_available`。
+
+公開 Compose 將 `ADMIN_LOGINS` 固定為空，也沒有啟動常駐 importer 或備份服務；只修改 `.env` 不會開啟後台。以下是另行部署可信管理端後的 API 行為，不是預設 Demo 的操作步驟。
 
 ### 目前身分
 
@@ -57,9 +61,9 @@ POST /api/v1/admin/jobs   {"kind": "sync"}
 POST /api/v1/admin/jobs   {"kind": "seasons", "params": {"seasons": "113S1-114S4", "cities": ["a", "f"]}}
 ```
 
-`POST` 排入一筆工作並回傳 `201`；`kind` 為 `sync`（完整同步）、`current_release`（重新匯入最新一期）、`seasons`（重新匯入指定季度）、`transit`（重新匯入軌道站點）或 `backup`（立即備份）。`backup` 由備份服務、其餘由 importer 每 15 秒認領並依序執行。
+`POST` 排入一筆工作並回傳 `201`；`kind` 為 `sync`（完整同步）、`current_release`（重新匯入最新一期）、`seasons`（重新匯入指定季度）、`transit`（重新匯入軌道站點）或 `backup`（立即備份）。`backup` 需要另行啟動備份服務；其餘由以 `sync -interval` 啟動的常駐 importer 在同步間隔期間每 15 秒檢查並依序執行。沒有執行者時，工作只會留在佇列中。
 
-`seasons` 需要 `params`：`seasons` 與 `make import-season` 的 `SEASONS` 格式相同（`115S3`、`113S1-114S4` 或以逗號分隔），最多 60 季；`cities` 為縣市代碼（`a`、`f`、`h`）且不可為空。不符時回傳 `400`。其他種類忽略 `params`。工作紀錄會帶回 `params`。同一種工作已在排隊或執行中時回傳 `409 conflict`；未知的 `kind` 回傳 `400`。
+`seasons` 需要 `params`：`seasons` 可為單季（`115S3`）、範圍（`113S1-114S4`）或以逗號分隔，最多 60 季；`cities` 為縣市代碼（`a`、`f`、`h`）且不可為空。本機手動匯入使用 `make import-sales SEASON=115S2 CITY=a`，也可改用 `import-rentals` 或 `import-presales`。不符時回傳 `400`。其他種類忽略 `params`。工作紀錄會帶回 `params`。同一種工作已在排隊或執行中時回傳 `409 conflict`；未知的 `kind` 回傳 `400`。
 
 `GET` 列出最近 50 筆工作（新到舊），含 `status`（`queued`、`running`、`succeeded`、`failed`）、`requestedBy`（觸發者的 Tailscale 帳號）、排入／開始／結束時間、`result` 與失敗時的 `error`。匯入類工作的 `result` 為執行期間的 `runs`、`failedRuns`、`rowsUpserted`；備份為 `file` 與 `bytes`。執行者重啟時，原本執行中的工作會標為失敗。
 
@@ -459,7 +463,9 @@ GET /api/v1/estimate/building?address=台北市大安區仁愛路四段27巷3號
 3. 權重為距離（每 300 公尺）、坪數（對數比每 0.3）、成交時間（每 18 個月）、屋齡（每 8 年）各自的指數衰減相乘，同棟成交再乘 10；估價取加權中位數，`spread` 為加權四分位距除以估價。
 4. 可比成交少於 5 筆時 `sufficient` 為 `false`，價格欄位為 `null`。
 
-`confidence`：同棟至少 3 筆且 `spread` < 0.15 為 `high`；可比成交至少 20 筆且 `spread` < 0.25 為 `medium`；其餘為 `low`。`rangeLow`／`rangeHigh` 與 `backtestMedianError` 來自 2026 年 1–6 月 3,000 筆成交的回測（每筆只用之前的成交估價）：
+`confidence`：同棟至少 3 筆且 `spread` < 0.15 為 `high`；可比成交至少 20 筆且 `spread` < 0.25 為 `medium`；其餘為 `low`。`rangeLow`／`rangeHigh` 與 `backtestMedianError` 使用開發版本記錄的歷史回測校準值，不會依使用者匯入的資料重新回測。
+
+以下成交與租金數字沿用開發版本的回測紀錄。本公開 repo 沒有附上當時的資料快照與重現腳本，因此無法在這裡獨立驗證，也不代表合成 Demo 或其他地區、期間的準確度。成交紀錄使用 2026 年 1–6 月 3,000 筆成交，每筆只用之前的成交估價：
 
 | `confidence` | 占比 | 誤差中位數 | 80% 區間 |
 | --- | --- | --- | --- |
@@ -778,13 +784,13 @@ GET /api/v1/regions
 ## cURL 範例
 
 ```bash
-curl 'http://localhost:3000/api/v1/transactions?types=住宅大樓&limit=10'
-curl 'http://localhost:3000/api/v1/aggregations/h3?resolution=9'
-curl 'http://localhost:3000/api/v1/trends?from=2025-10&to=2026-09'
-curl 'http://localhost:3000/api/v1/summary?types=公寓&from=2026-01&to=2026-09'
-curl --get --data-urlencode 'q=台北市大安區敦化南路一段100號' 'http://localhost:3000/api/v1/places'
-curl --get --data-urlencode 'district=大安區' 'http://localhost:3000/api/v1/feed?city=a&sort=date_desc'
-curl --get --data-urlencode 'district=大安區' --output transactions.csv 'http://localhost:3000/api/v1/export.csv?city=a'
-curl 'http://localhost:3000/api/v1/regions'
-curl 'http://localhost:3000/readyz'
+curl --get --data-urlencode 'types=住宅大樓' --data-urlencode 'limit=10' 'http://localhost:3100/api/v1/transactions'
+curl 'http://localhost:3100/api/v1/aggregations/h3?resolution=9'
+curl 'http://localhost:3100/api/v1/trends?from=2025-10&to=2026-09'
+curl --get --data-urlencode 'types=公寓' --data-urlencode 'from=2026-01' --data-urlencode 'to=2026-09' 'http://localhost:3100/api/v1/summary'
+curl --get --data-urlencode 'q=台北市大安區敦化南路一段100號' 'http://localhost:3100/api/v1/places'
+curl --get --data-urlencode 'district=大安區' 'http://localhost:3100/api/v1/feed?city=a&sort=date_desc'
+curl --get --data-urlencode 'district=大安區' --output transactions.csv 'http://localhost:3100/api/v1/export.csv?city=a'
+curl 'http://localhost:3100/api/v1/regions'
+curl 'http://localhost:3100/readyz'
 ```

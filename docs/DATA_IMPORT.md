@@ -80,6 +80,55 @@ make import-presales SEASON=113S3 CITY=a
 
 上述指令會下載來源並寫入你自己的本機資料庫。預設埠號 3100 與 project `geo-prophet-public` 不連到其他專案。不要將下載檔案、備份或含帳號的 log 提交至 Git。
 
+## 行政區範圍
+
+匯入門牌時會一併重算行政區範圍。若只想用已有門牌重算：
+
+```bash
+docker compose run --rm importer boundaries -city a
+```
+
+範圍由門牌坐標的 H3 resolution 8 網格推算，至少有 3 筆門牌的格子才會保留，依格內最多門牌所屬的行政區分配，再合併成 MultiPolygon。這不是官方行政區邊界；門牌稀疏的地方可能缺漏，不能用來判定土地歸屬。實作見 [districtmap](../api/internal/districtmap/districtmap.go)。
+
+## 大眾運輸站點
+
+先完成門牌與交易匯入，再匯入 TDX 的捷運、台鐵與高鐵站點。使用自己的 TDX 憑證；在 Bash 終端機依序輸入 client ID 和 client secret（secret 不會顯示）：
+
+```bash
+read -r TDX_CLIENT_ID
+read -rs TDX_CLIENT_SECRET
+export TDX_CLIENT_ID TDX_CLIENT_SECRET
+docker compose run --rm -e TDX_CLIENT_ID -e TDX_CLIENT_SECRET importer transit
+unset TDX_CLIENT_ID TDX_CLIENT_SECRET
+```
+
+這會載入軌道路網並計算買賣、租賃到站點的距離。沒有憑證時，手動 `transit` 仍會嘗試請求來源並可能失敗；常駐 `sync` 則略過軌道更新。來源與使用條款見 [DATA_SOURCES.md](DATA_SOURCES.md)。
+
+公開 Compose 只替 importer 設定 `DATABASE_URL`。TDX 與 Webhook 變數即使寫在 `.env`，也不會自動傳入容器，需像上例用 `-e` 明確傳入。不要把金鑰放在指令參數、前端變數或 Git 裡。
+
+## 選配同步與 Webhook
+
+若需要持續同步與品質通知，在 Bash 終端機依序輸入接收端 HTTPS URL 和 Bearer token（不需 token 時直接按 Enter）：
+
+```bash
+read -r QUALITY_WEBHOOK_URL
+read -rs QUALITY_WEBHOOK_TOKEN
+export QUALITY_WEBHOOK_URL QUALITY_WEBHOOK_TOKEN
+docker compose run --rm \
+  -e QUALITY_WEBHOOK_URL -e QUALITY_WEBHOOK_TOKEN \
+  -e TDX_CLIENT_ID -e TDX_CLIENT_SECRET \
+  importer sync -city a -interval 24h -facility-max-age 0
+unset QUALITY_WEBHOOK_URL QUALITY_WEBHOOK_TOKEN
+```
+
+這不是只檢查告警：啟動後會立即同步台北市門牌、最新已公布季度與本期交易，再每 24 小時同步一次；不會自動回補全部歷史季度。範例略過設施更新；需要軌道更新時，先依上一節讀入並 export TDX 憑證，執行結束後再 unset。按 Ctrl+C 停止，不會刪除資料庫。
+
+每次同步後檢查品質；等待下次同步時，每 5 分鐘檢查通知及重試，每 15 秒檢查人工工作。未設定 `QUALITY_WEBHOOK_URL` 就不發送通知。接收端 URL 須為 HTTPS（本機 loopback 測試可用 HTTP），token 以 `Authorization: Bearer` 傳送。
+
+通知是 JSON：`event` 固定為 `geo-prophet.quality-alert`，`alert` 包含 [API 品質告警欄位](API.md#資料同步狀態)。接收端以 `alert.runId + alert.code` 去重，成功接收後回傳 2xx；其他狀態會重試。
+
+此範例不會開啟後台權限，也不會啟動備份服務。預設 `make docker` 不執行這些同步或通知。
+
 ## Quality interpretation
 
 品質檢核以批次筆數、定位率、前一期比較與匯入涵蓋為依據，不代表來源所有案件已揭露。流動性 API 的零筆月可能是匯入缺口；樣本不足或涵蓋不足時衍生指標回傳 `null`。通知可能重送，接收方應以 run ID 和告警代碼去重。
