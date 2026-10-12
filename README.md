@@ -56,7 +56,7 @@ make docker
 make import-city CITY=a SEASON=114S3-115S2
 ```
 
-完成後開啟 <http://localhost:3100>。新北市是 `f`、桃園市是 `h`，可以寫成 `CITY=a,f,h`。`SEASON` 可以填一季（`115S2`）或區間；季數越多，下載和匯入越久。軌道站點需要 TDX 金鑰，另見[資料匯入](docs/DATA_IMPORT.md#大眾運輸站點)。下載前請先看[資料授權](docs/DATA_SOURCES.md)。
+完成後開啟 <http://localhost:3100>。新北市是 `f`、桃園市是 `h`，可以寫成 `CITY=a,f,h`。`SEASON` 可以填一季（`115S2`）或區間；季數越多，下載和匯入越久。一年的資料（上例，台北市約 5 分鐘）足夠看地圖和行情；估價要用近 3 年的成交，建議填 `SEASON=112S3-115S2`。軌道站點需要 TDX 金鑰，另見[資料匯入](docs/DATA_IMPORT.md#大眾運輸站點)。下載前請先看[資料授權](docs/DATA_SOURCES.md)。
 
 ## 文件
 

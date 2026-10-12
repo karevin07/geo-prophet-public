@@ -56,7 +56,7 @@ make docker
 make import-city CITY=a SEASON=114S3-115S2
 ```
 
-Then open <http://localhost:3100>. New Taipei is `f` and Taoyuan is `h`; `CITY=a,f,h` imports all three. `SEASON` takes one season (`115S2`) or a range, and more seasons take longer to download and import. Rail stations need a TDX key; see [Data import](docs/DATA_IMPORT.md#大眾運輸站點). Check the [data licenses](docs/DATA_SOURCES.md) before downloading.
+Then open <http://localhost:3100>. New Taipei is `f` and Taoyuan is `h`; `CITY=a,f,h` imports all three. `SEASON` takes one season (`115S2`) or a range, and more seasons take longer to download and import. One year, as above (about 5 minutes for Taipei), is enough for the map and market pages; estimates use the last three years of sales, so use `SEASON=112S3-115S2` for them. Rail stations need a TDX key; see [Data import](docs/DATA_IMPORT.md#大眾運輸站點). Check the [data licenses](docs/DATA_SOURCES.md) before downloading.
 
 ## Documentation
 
