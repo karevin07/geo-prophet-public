@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { AlertCircle, BarChart3, ChevronDown, RotateCcw } from "lucide-react";
 import { BUILDING_TYPES, type AnalysisQuery, type BuildingType, type MarketAnalysis, type TransactionAPI } from "../../lib/api";
+import { IS_DEMO } from "../../lib/demo";
 import { useLanguage } from "../../lib/i18n";
 import { formatWan, recentMonths } from "../../lib/price-scale";
 import { cn } from "../../lib/utils";
@@ -27,7 +28,8 @@ interface Props {
 
 export default function AnalysisPage(props: Props) {
   const { t } = useLanguage();
-  const [period, setPeriod] = useState<Period>(60);
+  // The online demo's snapshot holds three years.
+  const [period, setPeriod] = useState<Period>(IS_DEMO ? 36 : 60);
   const [breakdown, setBreakdown] = useState<Breakdown>("type");
   const [data, setData] = useState<MarketAnalysis | null>(null);
   const [loading, setLoading] = useState(true);

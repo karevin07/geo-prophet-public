@@ -1,6 +1,6 @@
 #!make
 .DEFAULT_GOAL := help
-.PHONY: install format lint test build dev-web dev-web-api dev-api docker docker-down migrate import-city import-addresses import-sales import-rentals import-presales import-facilities fixtures clean help
+.PHONY: install format lint test build dev-web dev-web-api dev-api docker docker-down migrate import-city import-addresses import-sales import-rentals import-presales import-facilities demo fixtures clean help
 
 ##@ Setup
 install: ## install frontend and Go dependencies
@@ -20,7 +20,7 @@ test: ## run frontend tests and Go race tests
 
 build: ## build frontend and Go executables
 	npm run build
-	cd api && go build ./cmd/server ./cmd/importer
+	cd api && go build ./cmd/server ./cmd/importer ./cmd/snapshot
 
 ##@ Demo
 dev-web: ## run frontend mock demo on loopback port 3100
@@ -71,6 +71,18 @@ import-presales: ## explicitly download presales; SEASON=115S2 CITY=a
 
 import-facilities: ## download OpenStreetMap, NHI and school lists; locates them in cities with door numbers
 	docker compose run --rm importer facilities
+
+##@ Online demo
+DEMO_BASE ?= /geo-prophet-public/
+DEMO_REPOSITORY_URL ?= https://github.com/karevin07/geo-prophet-public
+
+demo: ## build the GitHub Pages demo from the imported database into build/demo-site; CITY=a (docs/DEMO.md)
+	rm -rf build/demo-data && mkdir -p build/demo-data
+	docker compose run --rm --no-deps --user "$$(id -u):$$(id -g)" -v "$(CURDIR)/build/demo-data:/out" --entrypoint /snapshot importer -out /out -city $(CITY)
+	VITE_DATA_SOURCE=snapshot VITE_DEMO_REPOSITORY_URL=$(DEMO_REPOSITORY_URL) npx vite build --base=$(DEMO_BASE) --outDir build/demo-site --emptyOutDir
+	cp -r build/demo-data build/demo-site/demo-data
+	@# GitHub Pages serves 404.html for unknown paths, which lets the app route /area and the rest.
+	cp build/demo-site/index.html build/demo-site/404.html
 
 ##@ Cleanup
 clean: ## remove generated frontend build output only

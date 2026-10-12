@@ -1,9 +1,18 @@
 import { BUILDING_TYPES, FEED_SORTS, type BuildingType, type FeedSort } from "./api/types";
+import { tabAvailable } from "./demo";
 
 export const TABS = ["map", "analysis", "districts", "area", "investment", "rents", "estimate", "presales", "feed", "stations"] as const;
 export type Tab = (typeof TABS)[number];
 
 const TAB_PATHS: Record<Tab, string> = { map: "/", analysis: "/analysis", districts: "/districts", area: "/area", investment: "/investment", rents: "/rents", estimate: "/estimate", presales: "/presales", feed: "/feed", stations: "/stations" };
+
+/** Where the app is served, without the trailing slash: "" at the root, "/geo-prophet-public" for the demo. */
+export const BASE_PATH = import.meta.env.BASE_URL.replace(/\/+$/, "");
+
+/** A tab's address, under the app's base path. */
+export function tabPath(tab: Tab): string {
+  return tab === "map" ? `${BASE_PATH}/` : `${BASE_PATH}${TAB_PATHS[tab]}`;
+}
 
 export const INVESTMENT_AREA_BANDS = [[15, 30], [30, 45], [45, 60], [15, 45]] as const;
 export const INVESTMENT_AGE_BANDS = [[0, 5], [5, 15], [15, 30], [30, 60], [5, 30]] as const;
@@ -135,7 +144,9 @@ function clamp(value: number, min: number, max: number) {
 
 export function parseAppState(pathname: string, search: string): AppState {
   const params = new URLSearchParams(search);
-  const tab = (Object.entries(TAB_PATHS).find(([, path]) => path === pathname.replace(/\/+$/, "") || (path === "/" && pathname === "/"))?.[0] ?? "map") as Tab;
+  const path = (pathname.startsWith(BASE_PATH) ? pathname.slice(BASE_PATH.length) : pathname).replace(/\/+$/, "") || "/";
+  const named = (Object.entries(TAB_PATHS).find(([, tabPath]) => tabPath === path)?.[0] ?? "map") as Tab;
+  const tab = tabAvailable(named) ? named : "map";
   const types = params.get("types")?.split(",").filter((type): type is BuildingType => (BUILDING_TYPES as readonly string[]).includes(type));
   const month = params.get("month");
   const resolution = Number(params.get("res"));
@@ -278,5 +289,5 @@ export function formatAppState(state: AppState): string {
   const { lat, lng, zoom } = state.view;
   params.set("at", `${lat.toFixed(4)},${lng.toFixed(4)},${zoom.toFixed(2)}`);
   const query = params.toString().replace(/%2C/g, ",");
-  return `${TAB_PATHS[state.tab]}${query ? `?${query}` : ""}`;
+  return `${tabPath(state.tab)}${query ? `?${query}` : ""}`;
 }

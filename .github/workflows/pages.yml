@@ -1,0 +1,78 @@
+name: Pages
+
+# Publishes the online demo: imports Taipei's official open data into a throwaway
+# database, writes a snapshot of it and deploys the static site to GitHub Pages.
+# A failed import leaves the previous deployment online. See docs/DEMO.md.
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Mondays 04:30 Taiwan time, after the weekend's 10-day releases.
+    - cron: "30 20 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Import and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      # The database only lives for this job.
+      POSTGRES_PASSWORD: pages-build-only
+      CITY: a
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build images
+        run: docker compose build db importer
+
+      # Season archives up to two quarters ago are certainly published; sync then adds the
+      # newest season once it is out and the latest 10-day release.
+      - name: Import three years of sales, rentals and presales
+        run: |
+          index=$(( ($(date -u +%Y) - 1911) * 4 + ($(date -u +%-m) - 1) / 3 ))
+          season() { echo "$(( $1 / 4 ))S$(( $1 % 4 + 1 ))"; }
+          make import-city CITY=$CITY SEASON="$(season $((index - 14)))-$(season $((index - 2)))"
+          docker compose run --rm importer sync -city $CITY
+
+      - name: Build the demo
+        run: make demo CITY=$CITY DEMO_BASE="/${{ github.event.repository.name }}/" DEMO_REPOSITORY_URL="${{ github.server_url }}/${{ github.repository }}"
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/demo-site
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

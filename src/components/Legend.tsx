@@ -1,4 +1,5 @@
 import type { FacilityGroup } from "../lib/api";
+import { IS_DEMO } from "../lib/demo";
 import { DENSITY_CLASSES, GROUP_COLORS } from "../lib/facilities";
 import { useLanguage } from "../lib/i18n";
 import FacilityIcon from "./FacilityIcon";
@@ -94,6 +95,7 @@ export default function Legend({ breaks, showTransit, density, facilityGroups, p
           </ul>
         </div>
       )}
+      {IS_DEMO && <p className="mt-2 border-t border-slate-100 pt-2 text-[10px] leading-relaxed text-slate-400">{t("demo.attribution")}</p>}
     </div>
   );
 }

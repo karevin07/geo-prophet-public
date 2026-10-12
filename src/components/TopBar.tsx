@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Activity, Building2, ChartNoAxesCombined, Check, ChevronDown, CircleDollarSign, HelpCircle, Map as MapIcon, MapPin, Menu, Scale, ShieldCheck, TrainFront, X, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useLanguage } from "../lib/i18n";
-import { NAVIGATION_GROUPS, navigationGroup, navigationHref, type NavigationGroup } from "../lib/navigation";
+import { VISIBLE_NAVIGATION_GROUPS, navigationGroup, navigationHref, type NavigationGroup } from "../lib/navigation";
 import type { Tab } from "../lib/url-state";
 
 interface TopBarProps {
@@ -96,7 +96,7 @@ export default function TopBar({ tab, setTab, onHelp, showAdmin }: TopBarProps) 
   };
 
   return <header className="relative z-40 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 sm:h-16 sm:px-6 lg:gap-6">
-    <a href="/" aria-label={t("app.title")} onClick={(event) => navigate(event, "map")} className={cn("flex shrink-0 items-center gap-2.5 rounded-lg", focusStyle)}>
+    <a href={navigationHref("map")} aria-label={t("app.title")} onClick={(event) => navigate(event, "map")} className={cn("flex shrink-0 items-center gap-2.5 rounded-lg", focusStyle)}>
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white"><MapIcon aria-hidden="true" className="h-4.5 w-4.5" /></span>
       <span className="hidden text-base font-semibold text-slate-900 sm:inline">{t("app.title")}</span>
     </a>
@@ -107,11 +107,11 @@ export default function TopBar({ tab, setTab, onHelp, showAdmin }: TopBarProps) 
     </div>
 
     <nav ref={navRef} aria-label={t("nav.main")} className="hidden min-w-0 flex-1 items-stretch gap-1 self-stretch lg:flex xl:gap-3">
-      <a href="/" onClick={(event) => navigate(event, "map")} aria-current={tab === "map" ? "page" : undefined}
+      <a href={navigationHref("map")} onClick={(event) => navigate(event, "map")} aria-current={tab === "map" ? "page" : undefined}
         className={cn("flex shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium", focusStyle, tab === "map" ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-900")}>
         <MapIcon aria-hidden="true" className="h-4 w-4" />{t("nav.explore")}
       </a>
-      {NAVIGATION_GROUPS.map((group) => <div key={group.id} className="relative flex" onBlur={(event) => {
+      {VISIBLE_NAVIGATION_GROUPS.map((group) => <div key={group.id} className="relative flex" onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setOpenGroup((current) => current === group.id ? null : current);
       }}>
         <button type="button" data-group={group.id} aria-expanded={openGroup === group.id} aria-controls={`nav-${group.id}`}
@@ -160,7 +160,7 @@ export default function TopBar({ tab, setTab, onHelp, showAdmin }: TopBarProps) 
         </div>
         <nav aria-label={t("nav.main")} className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
           {pageLink("map")}
-          {NAVIGATION_GROUPS.map((group) => <section key={group.id} aria-labelledby={`drawer-${group.id}`}>
+          {VISIBLE_NAVIGATION_GROUPS.map((group) => <section key={group.id} aria-labelledby={`drawer-${group.id}`}>
             <h3 id={`drawer-${group.id}`} className="mb-1 px-3 text-xs font-semibold tracking-wide text-slate-500">{t(`nav.group.${group.id}`)}</h3>
             {group.tabs.map((item) => pageLink(item))}
           </section>)}

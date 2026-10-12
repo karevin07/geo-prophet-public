@@ -11,6 +11,8 @@
 
 [繁體中文](README.md) · [English](README.en.md)
 
+**[▶ Live demo](https://karevin07.github.io/geo-prophet-public/)**: three years of Taipei's actual price registration, refreshed weekly. Try the map, market analysis, district comparison, area overview and latest sales without installing anything; estimates, rents, presales and stations need the API, so run them locally.
+
 Explore Taiwan's registered sales, leases, and presale transactions alongside address coordinates, rail stations, and nearby facilities. View sales on a map, follow price trends, compare districts, and estimate the price and rent of a single address.
 
 Go downloads and imports the data, PostgreSQL/PostGIS stores and queries it, and React displays maps and charts.
@@ -60,10 +62,10 @@ Then open <http://localhost:3100>. New Taipei is `f` and Taoyuan is `h`; `CITY=a
 
 ## Documentation
 
-[Data import](docs/DATA_IMPORT.md) · [API](docs/API.md) · [User guide](docs/MAP_GUIDE.md) · [Development and database setup](CONTRIBUTING.md) · [More docs](docs/README.md)
+[Data import](docs/DATA_IMPORT.md) · [API](docs/API.md) · [User guide](docs/MAP_GUIDE.md) · [Online demo](docs/DEMO.md) (Chinese) · [Development and database setup](CONTRIBUTING.md) · [More docs](docs/README.md)
 
 ## Data and licensing
 
-The repo includes import code and synthetic test data, not downloaded official datasets or API credentials. To use TDX or other sources, configure your own credentials where required and check the [data licenses](docs/DATA_SOURCES.md). The comparison metrics do not predict future price gains.
+The repo includes import code and synthetic test data, not downloaded official datasets or API credentials; the live demo's data is generated from the official open data when it is deployed, with its source credited. To use TDX or other sources, configure your own credentials where required and check the [data licenses](docs/DATA_SOURCES.md). The comparison metrics do not predict future price gains.
 
 Code and documentation use the [MIT License](LICENSE). Third-party data and basemaps retain their own licenses.
