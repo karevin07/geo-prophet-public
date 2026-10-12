@@ -72,13 +72,38 @@ CSV 是依 parser 測試情境手工建構：主鍵使用 `SYN-*`，道路與建
 確認 [資料來源條款](DATA_SOURCES.md)，先啟動本機 Docker stack，再執行：
 
 ```bash
-docker compose run --rm importer addresses -city a
-make import-sales SEASON=115S2 CITY=a
-make import-rentals SEASON=115S2 CITY=a
-make import-presales SEASON=113S3 CITY=a
+make import-city CITY=a SEASON=114S3-115S2
 ```
 
+`import-city` 依序執行下面的指令；也可以單獨執行其中一項：
+
+```bash
+make import-addresses CITY=a                  # 門牌座標，順便重算行政區範圍
+make import-sales     CITY=a SEASON=114S3-115S2
+make import-rentals   CITY=a SEASON=114S3-115S2
+make import-presales  CITY=a SEASON=114S3-115S2
+make import-facilities                        # 生活機能設施
+```
+
+`CITY` 可以填多個縣市（`a,f,h`）。`SEASON` 可以是一季（`115S2`）、逗號分隔的多季，或區間（`105S1-115S2`）；尚未公布的季度會略過。門牌要先匯入，交易才能定位。
+
 上述指令會下載來源並寫入你自己的本機資料庫。預設埠號 3100 與 project `geo-prophet-public` 不連到其他專案。不要將下載檔案、備份或含帳號的 log 提交至 Git。
+
+## 生活機能設施
+
+```bash
+make import-facilities
+```
+
+一次下載三個來源，各自整批取代上一版：
+
+| 來源 | 內容 | 定位方式 |
+| --- | --- | --- |
+| OpenStreetMap（Geofabrik 台灣 extract，300 MB 以上） | 便利商店、超市、市場、公園、圖書館、嫌惡設施 | 原始座標；依周圍門牌判斷行政區 |
+| 健保特約醫事機構 | 醫院、診所 | 以地址比對門牌 |
+| 教育部學校名錄 | 國小到大專 | 以地址比對門牌 |
+
+只會保留已匯入門牌的縣市內的設施，所以要先執行 `import-addresses`。之後新增縣市時再執行一次。只更新單一來源時用 `docker compose run --rm importer facilities -source nhi`；已下載的 OSM 檔可以用 `-file` 指定，但要放在容器讀得到的位置。
 
 ## 行政區範圍
 

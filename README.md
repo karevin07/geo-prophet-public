@@ -46,6 +46,18 @@ make dev-web
 
 開啟 <http://localhost:3100>。這個模式使用合成資料，不需要資料庫或 API 金鑰。底圖仍需要網路；租金、預售等頁面可能沒有資料，CSV 匯出也未啟用。
 
+### 使用真實資料
+
+需要 Docker 和 Compose plugin。下面的指令會啟動本機 PostGIS，下載台北市（`CITY=a`）近一年的實價登錄與生活機能資料：
+
+```bash
+cp .env.example .env    # 把 POSTGRES_PASSWORD 改成自己的本機密碼
+make docker
+make import-city CITY=a SEASON=114S3-115S2
+```
+
+完成後開啟 <http://localhost:3100>。新北市是 `f`、桃園市是 `h`，可以寫成 `CITY=a,f,h`。`SEASON` 可以填一季（`115S2`）或區間；季數越多，下載和匯入越久。軌道站點需要 TDX 金鑰，另見[資料匯入](docs/DATA_IMPORT.md#大眾運輸站點)。下載前請先看[資料授權](docs/DATA_SOURCES.md)。
+
 ## 文件
 
 [資料匯入](docs/DATA_IMPORT.md) · [API](docs/API.md) · [操作指南](docs/MAP_GUIDE.md) · [開發與資料庫設定](CONTRIBUTING.md) · [其他文件](docs/README.md)

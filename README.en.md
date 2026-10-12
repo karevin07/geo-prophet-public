@@ -46,6 +46,18 @@ make dev-web
 
 Open <http://localhost:3100>. This mode uses synthetic data, so no database or API keys are needed. The basemap still needs network access. Rental and presale pages may have no data, and CSV export is disabled.
 
+### Use real data
+
+You need Docker with the Compose plugin. These commands start a local PostGIS database and download a year of Taipei (`CITY=a`) transactions plus facility data:
+
+```bash
+cp .env.example .env    # set POSTGRES_PASSWORD to a local password
+make docker
+make import-city CITY=a SEASON=114S3-115S2
+```
+
+Then open <http://localhost:3100>. New Taipei is `f` and Taoyuan is `h`; `CITY=a,f,h` imports all three. `SEASON` takes one season (`115S2`) or a range, and more seasons take longer to download and import. Rail stations need a TDX key; see [Data import](docs/DATA_IMPORT.md#大眾運輸站點). Check the [data licenses](docs/DATA_SOURCES.md) before downloading.
+
 ## Documentation
 
 [Data import](docs/DATA_IMPORT.md) · [API](docs/API.md) · [User guide](docs/MAP_GUIDE.md) · [Development and database setup](CONTRIBUTING.md) · [More docs](docs/README.md)
