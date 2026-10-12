@@ -1,5 +1,14 @@
 # GeoProphet
 
+[![CI](https://github.com/karevin07/geo-prophet-public/actions/workflows/ci.yml/badge.svg)](https://github.com/karevin07/geo-prophet-public/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
+![PostgreSQL 16 + PostGIS](https://img.shields.io/badge/PostgreSQL_16-PostGIS-4169E1?logo=postgresql&logoColor=white)
+![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)
+![MapLibre + deck.gl](https://img.shields.io/badge/MapLibre-deck.gl-396CB2?logo=maplibre&logoColor=white)
+![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+
 [繁體中文](README.md) · [English](README.en.md)
 
 Explore Taiwan's registered sales, leases, and presale transactions alongside address coordinates, rail stations, and nearby facilities. View sales on a map, follow price trends, compare districts, and estimate the price and rent of a single address.
