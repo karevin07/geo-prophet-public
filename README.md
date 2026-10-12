@@ -2,9 +2,22 @@
 
 [繁體中文](README.md) · [English](README.en.md)
 
-把實價登錄、門牌座標和軌道站點放在同一張地圖，查成交、看行情、比較行政區。
+把實價登錄的買賣、租賃和預售屋成交，連同門牌座標、軌道站點和生活機能放在同一張地圖，查成交、看行情、比較行政區，也能估算單一地址的價格和租金。
 
 Go 負責下載、整理和匯入資料，PostgreSQL／PostGIS 儲存與查詢，React 呈現地圖和圖表。
+
+![地圖：台北市的 H3 蜂巢網格依平均單價分色，疊上捷運路線與車站年增率](docs/screenshots/map.jpg)
+
+| | |
+| --- | --- |
+| ![行情分析：多年單價走勢與每月成交量](docs/screenshots/analysis.jpg) | ![區域總覽：行政區的單價、租金、預售與生活機能](docs/screenshots/area.jpg) |
+| **行情分析**：依建物型態、總價和坪數篩選，看多年單價與成交量。 | **區域總覽**：一個行政區的單價排名、租金報酬率、預售溢價和每平方公里設施數。 |
+| ![租金：各行政區毛報酬率地圖與租金走勢](docs/screenshots/rents.jpg) | ![估價：以附近成交估算總價與月租](docs/screenshots/estimate.jpg) |
+| **租金**：各區整戶出租租金、毛報酬率和走勢。 | **估價**：用附近同類成交與租約估總價和月租，附回測過的 80% 區間。 |
+| ![預售建案：建案分布、成交統計與周邊中古屋比較](docs/screenshots/presales.jpg) | ![車站：周邊 500 公尺成交單價排行](docs/screenshots/stations.jpg) |
+| **預售建案**：建案的銷售節奏、樓層價差和與周邊中古屋的價差。 | **車站**：捷運、台鐵、高鐵站周邊的單價排行與通車前後比較。 |
+
+截圖來自匯入官方資料的本機部署。下面的試用模式使用合成資料，畫面上的數字會不同。
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/architecture-dark.png">
