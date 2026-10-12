@@ -176,7 +176,13 @@ func (service *Service) importListedFacilities(ctx context.Context, runID int64,
 	stats := domain.ImportStats{RowsRead: len(listed), Detail: map[string]int{}}
 	facilities := make([]domain.Facility, 0, len(listed))
 	for _, entry := range listed {
+		// The lists cover every city; those without imported door numbers are skipped.
 		matcher, err := matchers(ctx, entry.CityCode)
+		if errors.Is(err, ErrNoAddressPoints) {
+			stats.RowsSkipped++
+			stats.Detail["skipped_no_address_points"]++
+			continue
+		}
 		if err != nil {
 			return domain.ImportStats{}, err
 		}

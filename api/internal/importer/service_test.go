@@ -557,12 +557,14 @@ func TestImportFacilitiesLocatesGovernmentLists(t *testing.T) {
 		"https://example.test/points-39283.csv": []byte(header +
 			"0101010001,新生診所,西醫診所,(02)1,臺北市中山區示範一路１３３巷１２號\n" +
 			"0101010002,遠方診所,西醫診所,(02)2,臺北市中山區示範三路１號\n" +
-			"0501010003,高雄診所,西醫診所,(07)3,高雄市苓雅區凱旋二路１號\n"),
+			"0501010003,高雄診所,西醫診所,(07)3,高雄市苓雅區凱旋二路１號\n" +
+			"0201010004,板橋診所,西醫診所,(02)4,新北市板橋區示範五路１號\n"),
 	}}
 	if err := newService(store, fetcher).ImportFacilities(context.Background(), []string{importer.FacilitiesNHI}, ""); err != nil {
 		t.Fatalf("ImportFacilities returned an error: %v", err)
 	}
-	// 示範三路 has no door numbers, so it is only located at its district and dropped.
+	// 示範三路 has no door numbers, so it is only located at its district and dropped; 新北
+	// has none imported, so its clinic is skipped rather than failing the import.
 	clinics := store.facilities["nhi"]
 	if len(clinics) != 1 || clinics[0].ID != "nhi:0101010001" || clinics[0].Category != "clinic" || clinics[0].District != "中山區" || clinics[0].GeocodePrecision != "address" {
 		t.Fatalf("unexpected clinics: %+v", clinics)
@@ -570,7 +572,8 @@ func TestImportFacilitiesLocatesGovernmentLists(t *testing.T) {
 	if got := store.runsFor("nhi_facilities"); len(got) != 1 {
 		t.Fatalf("expected one run, got %v", got)
 	}
-	if stats := store.finished[1]; stats.RowsRead != 2 || stats.RowsUpserted != 1 || stats.RowsGeocodeFailed != 1 {
+	if stats := store.finished[1]; stats.RowsRead != 3 || stats.RowsUpserted != 1 || stats.RowsGeocodeFailed != 1 ||
+		stats.RowsSkipped != 1 || stats.Detail["skipped_no_address_points"] != 1 {
 		t.Fatalf("unexpected stats: %#v", stats)
 	}
 	if err := newService(store, fetcher).ImportFacilities(context.Background(), []string{"google"}, ""); err == nil {

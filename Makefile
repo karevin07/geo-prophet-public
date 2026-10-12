@@ -1,6 +1,6 @@
 #!make
 .DEFAULT_GOAL := help
-.PHONY: install format lint test build dev-web dev-web-api dev-api docker docker-down migrate import-sales import-rentals import-presales fixtures clean help
+.PHONY: install format lint test build dev-web dev-web-api dev-api docker docker-down migrate import-city import-addresses import-sales import-rentals import-presales import-facilities fixtures clean help
 
 ##@ Setup
 install: ## install frontend and Go dependencies
@@ -46,6 +46,17 @@ migrate: ## apply pending migrations to the local demo database
 	docker compose run --rm migrate
 
 CITY ?= a
+import-city: ## import one city's door numbers, sales, rentals, presales and facilities; SEASON=114S3-115S2 CITY=a
+	@test -n "$(SEASON)" || { echo "SEASON is required, e.g. SEASON=115S2 or SEASON=114S3-115S2"; exit 1; }
+	$(MAKE) import-addresses CITY=$(CITY)
+	$(MAKE) import-sales SEASON=$(SEASON) CITY=$(CITY)
+	$(MAKE) import-rentals SEASON=$(SEASON) CITY=$(CITY)
+	$(MAKE) import-presales SEASON=$(SEASON) CITY=$(CITY)
+	$(MAKE) import-facilities
+
+import-addresses: ## download door-number coordinates and rebuild district boundaries; CITY=a
+	docker compose run --rm importer addresses -city $(CITY)
+
 import-sales: ## explicitly download sales after reviewing source terms; SEASON=115S2 CITY=a
 	@test -n "$(SEASON)" || { echo "SEASON is required"; exit 1; }
 	docker compose run --rm importer sales -season $(SEASON) -city $(CITY)
@@ -57,6 +68,9 @@ import-rentals: ## explicitly download rentals; SEASON=115S2 CITY=a
 import-presales: ## explicitly download presales; SEASON=115S2 CITY=a
 	@test -n "$(SEASON)" || { echo "SEASON is required"; exit 1; }
 	docker compose run --rm importer presales -season $(SEASON) -city $(CITY)
+
+import-facilities: ## download OpenStreetMap, NHI and school lists; locates them in cities with door numbers
+	docker compose run --rm importer facilities
 
 ##@ Cleanup
 clean: ## remove generated frontend build output only
