@@ -1,4 +1,5 @@
 import { Building, Grid2x2, SlidersHorizontal, TrainFront, X } from "lucide-react";
+import { IS_DEMO } from "../lib/demo";
 import type { FacilityGroup } from "../lib/api";
 import { FACILITY_GROUPS, GROUP_COLORS } from "../lib/facilities";
 import { useLanguage } from "../lib/i18n";
@@ -59,15 +60,15 @@ export default function LayersPanel({ settings, onChange, onClose, facilityCount
 
       <div className="mb-2 mt-4 text-xs text-slate-600">{t("layers.overlays")}</div>
       <div className="space-y-2.5">
-        <label className="flex cursor-pointer items-center justify-between gap-3 text-slate-700">
+        {!IS_DEMO && <label className="flex cursor-pointer items-center justify-between gap-3 text-slate-700">
           <span className="flex items-center gap-2 text-xs"><TrainFront className="h-3.5 w-3.5 text-slate-400" />{t("layers.transit")}</span>
           <Switch checked={settings.transit} onChange={(transit) => onChange({ transit })} />
-        </label>
+        </label>}
         <label className="flex cursor-pointer items-center justify-between gap-3 text-slate-700">
           <span className="flex items-center gap-2 text-xs"><Grid2x2 className="h-3.5 w-3.5 text-slate-400" />{t("layers.districts")}</span>
           <Switch checked={settings.districts} onChange={(districts) => onChange({ districts })} />
         </label>
-        <label className="flex cursor-pointer items-center justify-between gap-3 text-slate-700">
+        {!IS_DEMO && <label className="flex cursor-pointer items-center justify-between gap-3 text-slate-700">
           <span className="flex min-w-0 items-center gap-2 text-xs"><Building className="h-3.5 w-3.5 shrink-0 text-slate-400" />
             <span className="min-w-0">{t("layers.presales")}<span className="block text-[10px] text-slate-400">{t("layers.presalesHint")}</span></span>
           </span>
@@ -75,10 +76,11 @@ export default function LayersPanel({ settings, onChange, onClose, facilityCount
             {settings.presales && presaleCount !== null && <span className="rounded-full bg-slate-100 px-1.5 text-[10px] tabular-nums text-slate-600">{presaleCount}</span>}
             <Switch checked={settings.presales} onChange={(presales) => onChange({ presales })} />
           </span>
-        </label>
+        </label>}
       </div>
 
-      <div className="mt-4 border-t border-slate-100 pt-4">
+      {/* The demo's snapshot holds no facilities, rail stations or presale locations yet. */}
+      {!IS_DEMO && <div className="mt-4 border-t border-slate-100 pt-4">
         <div className="mb-2 flex items-center justify-between gap-3">
           <span className="text-xs font-semibold text-slate-700">{t("facilities.title")}</span>
           <Switch
@@ -126,7 +128,7 @@ export default function LayersPanel({ settings, onChange, onClose, facilityCount
         <p className="mt-2 text-[10px] leading-relaxed text-slate-400">{t("facilities.zoomNote")}</p>
         {settings.facilityView === "density" && <p className="mt-1 text-[10px] leading-relaxed text-slate-400">{t("facilities.densityNote")}</p>}
         <p className="mt-1 text-[10px] text-slate-400">{t("facilities.attribution")}</p>
-      </div>
+      </div>}
     </div>
   );
 }

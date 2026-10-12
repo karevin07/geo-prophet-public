@@ -5,6 +5,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // public/ holds the tooling that exports the public repository, not static assets.
+  publicDir: false,
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),

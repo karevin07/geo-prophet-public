@@ -1,4 +1,5 @@
 import type { FacilityGroup } from "./api";
+import { IS_DEMO } from "./demo";
 import type { Basemap } from "./basemap";
 import { FACILITY_GROUPS } from "./facilities";
 
@@ -25,6 +26,12 @@ export const DEFAULT_LAYER_SETTINGS: LayerSettings = {
 const STORAGE_KEY = "geoprophet.layers";
 
 export function loadLayerSettings(): LayerSettings {
+  const settings = readLayerSettings();
+  // The online demo's snapshot has no stations, presales or facilities to draw.
+  return IS_DEMO ? { ...settings, transit: false, presales: false, facilityGroups: [], facilityView: "price" } : settings;
+}
+
+function readLayerSettings(): LayerSettings {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Partial<LayerSettings>;
     return {

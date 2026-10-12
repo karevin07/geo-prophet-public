@@ -11,6 +11,8 @@
 
 [繁體中文](README.md) · [English](README.en.md)
 
+**[▶ 線上 Demo](https://karevin07.github.io/geo-prophet-public/)**：台北市近 3 年的實價登錄，每週自動更新。不用安裝就能操作地圖、行情分析、行政區比較、區域總覽和交易動態；估價、租金、預售和車站需要 API，請在本機部署。
+
 把實價登錄的買賣、租賃和預售屋成交，連同門牌座標、軌道站點和生活機能放在同一張地圖，查成交、看行情、比較行政區，也能估算單一地址的價格和租金。
 
 Go 負責下載、整理和匯入資料，PostgreSQL／PostGIS 儲存與查詢，React 呈現地圖和圖表。
@@ -60,10 +62,10 @@ make import-city CITY=a SEASON=114S3-115S2
 
 ## 文件
 
-[資料匯入](docs/DATA_IMPORT.md) · [API](docs/API.md) · [操作指南](docs/MAP_GUIDE.md) · [開發與資料庫設定](CONTRIBUTING.md) · [其他文件](docs/README.md)
+[資料匯入](docs/DATA_IMPORT.md) · [API](docs/API.md) · [操作指南](docs/MAP_GUIDE.md) · [線上 Demo](docs/DEMO.md) · [開發與資料庫設定](CONTRIBUTING.md) · [其他文件](docs/README.md)
 
 ## 資料與授權
 
-Repo 只提供匯入程式和合成測試資料，不包含下載的官方資料或 API 憑證。使用 TDX 等來源時，需要自行設定憑證並確認[資料授權](docs/DATA_SOURCES.md)。頁面上的比較指標不代表未來漲幅。
+Repo 只提供匯入程式和合成測試資料，不包含下載的官方資料或 API 憑證；線上 Demo 的資料在部署時從官方開放資料產生，並標示來源。使用 TDX 等來源時，需要自行設定憑證並確認[資料授權](docs/DATA_SOURCES.md)。頁面上的比較指標不代表未來漲幅。
 
 程式與文件採 [MIT](LICENSE)；第三方資料和底圖依各自授權使用。

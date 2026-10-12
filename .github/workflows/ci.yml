@@ -51,7 +51,7 @@ jobs:
         run: go test -race ./...
 
       - name: Build
-        run: go build ./cmd/server ./cmd/importer
+        run: go build ./cmd/server ./cmd/importer ./cmd/snapshot
 
   web:
     name: Web

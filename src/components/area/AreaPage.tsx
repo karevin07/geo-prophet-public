@@ -5,6 +5,7 @@ import type {
   CityFacilities, DistrictBoundaries, DistrictComparison, PresaleProject, RentalReport, RentTrend, StationRanking, TransactionAPI, TransitStation,
 } from "../../lib/api";
 import { CITY_NAMES } from "../../lib/data-status";
+import { IS_DEMO } from "../../lib/demo";
 import { FACILITY_CATEGORIES, GROUP_COLORS, groupOf } from "../../lib/facilities";
 import { useLanguage } from "../../lib/i18n";
 import { formatWan, priceBreaks, priceColor, recentMonths } from "../../lib/price-scale";
@@ -119,6 +120,8 @@ export default function AreaPage({ api, state, onChange, onShowProject, onShowSt
   }, [presales]);
 
   const districtFacilities = facilities?.districts.find((row) => row.district === district);
+  // The demo has no stations, which is not the same as a district without any.
+  const noStations = t(IS_DEMO ? "demo.noStations" : "area.kpi.noStations");
   const districtStations = useMemo(() => {
     const ranks = new Map(stationRanking?.stations.map((station) => [station.stationId, station]) ?? []);
     return (stations ?? []).filter((station) => station.cityCode === city && station.district === district)
@@ -172,8 +175,8 @@ export default function AreaPage({ api, state, onChange, onShowProject, onShowSt
           note={presaleSummary ? fill(t("area.kpi.presaleNote"), { projects: presaleSummary.projects, sales: presaleSummary.sales }) : t("area.kpi.noPresale")} />
         <Kpi label={t("area.kpi.facilities")} value={districtFacilities ? ((districtFacilities.counts.convenience ?? 0) / districtFacilities.areaKm2).toFixed(1) : "—"} unit={t("area.kpi.perKm2")}
           note={districtFacilities && facilities ? fill(t("area.kpi.facilitiesNote"), { city: ((facilities.city.counts.convenience ?? 0) / facilities.city.areaKm2).toFixed(1), parks: districtFacilities.counts.park ?? 0 }) : ""} />
-        <Kpi label={t("area.kpi.stations")} value={stations ? String(districtStations.length) : "—"} unit={t("area.kpi.stationUnit")}
-          note={districtStations.length > 0 ? districtStations.slice(0, 3).map((item) => item.station.name).join("、") : t("area.kpi.noStations")} />
+        <Kpi label={t("area.kpi.stations")} value={stations && !IS_DEMO ? String(districtStations.length) : "—"} unit={t("area.kpi.stationUnit")}
+          note={districtStations.length > 0 ? districtStations.slice(0, 3).map((item) => item.station.name).join("、") : noStations} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -274,14 +277,14 @@ export default function AreaPage({ api, state, onChange, onShowProject, onShowSt
                 <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 {FACILITY_CATEGORIES.nuisance.map((category) => `${t(`facilities.category.${category}`)} ${districtFacilities.counts[category] ?? 0}`).join(" · ")}
               </p>
-              <p className="mt-2 text-[11px] text-slate-400">{fill(t("area.facilities.note"), { area: districtFacilities.areaKm2 })}</p>
+              <p className="mt-2 text-[11px] text-slate-400">{fill(t("area.facilities.note"), { area: districtFacilities.areaKm2 })} · {t("facilities.attribution")}</p>
             </>}
           </section>
 
           <section className={card}>
             <CardTitle title={t("area.stations.title")} hint={t("area.stations.hint")} />
             {stations === null ? <div className="mt-3 h-32 animate-pulse rounded-xl bg-slate-100" /> : districtStations.length === 0
-              ? <p className="mt-3 text-sm text-slate-500">{t("area.kpi.noStations")}</p>
+              ? <p className="mt-3 text-sm text-slate-500">{noStations}</p>
               : <ul className="mt-2 divide-y divide-slate-100">
                 {districtStations.map(({ station, rank: stationRank }) => (
                   <li key={station.id}>

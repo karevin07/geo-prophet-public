@@ -4,6 +4,7 @@ import FilterPanel from "./components/FilterPanel";
 import HelpDialog from "./components/HelpDialog";
 import Legend from "./components/Legend";
 import TimeBar from "./components/TimeBar";
+import DemoBanner from "./components/demo/DemoBanner";
 import TopBar from "./components/TopBar";
 import type { FlyTarget } from "./components/Map";
 import {
@@ -11,6 +12,7 @@ import {
   type BBox, type BuildingType, type DistrictBoundaries, type FeedQuery, type TransitLines, type TransitStation, type H3Aggregate, type Place, type SummaryWithYoY, type TransactionData, type TransactionQuery, type TrendPoint,
 } from "./lib/api";
 import { adminAPI } from "./lib/api/admin";
+import { IS_DEMO } from "./lib/demo";
 import { useLanguage } from "./lib/i18n";
 import { priceBreaks, recentMonths } from "./lib/price-scale";
 import { loadLayerSettings, saveLayerSettings, type LayerSettings } from "./lib/layer-settings";
@@ -25,6 +27,7 @@ const StationsPage = lazy(() => import("./components/StationsPage"));
 const InvestmentPage = lazy(() => import("./components/investment/InvestmentPage"));
 const RentsPage = lazy(() => import("./components/rents/RentsPage"));
 const EstimatePage = lazy(() => import("./components/estimate/EstimatePage"));
+const DemoUnavailable = lazy(() => import("./components/demo/DemoUnavailable"));
 const PresalesPage = lazy(() => import("./components/presales/PresalesPage"));
 const AreaPage = lazy(() => import("./components/area/AreaPage"));
 
@@ -68,7 +71,7 @@ export default function App() {
   // Only admins see the way into the admin console; anyone else gets no link.
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
-    if (import.meta.env.VITE_DATA_SOURCE === "mock") return;
+    if (import.meta.env.VITE_DATA_SOURCE === "mock" || IS_DEMO) return;
     const controller = new AbortController();
     adminAPI.me(controller.signal).then((session) => setIsAdmin(session.admin)).catch(() => undefined);
     return () => controller.abort();
@@ -337,6 +340,7 @@ export default function App() {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-canvas font-sans text-slate-700">
+      {IS_DEMO && <DemoBanner />}
       <TopBar tab={tab} setTab={setTab} onHelp={() => setIsHelpOpen(true)} exportUrl={exportUrl} showAdmin={isAdmin} />
 
       <div className="relative min-h-0 flex-1">
@@ -454,7 +458,8 @@ export default function App() {
           </Suspense>
         ) : tab === "estimate" ? (
           <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-slate-500">{t("status.loading")}</div>}>
-            <EstimatePage api={transactionAPI} state={estimate} onChange={setEstimate} fetchNearbyFacilities={fetchNearbyFacilities} />
+            {IS_DEMO ? <DemoUnavailable onAnalysis={() => setTab("analysis")} />
+              : <EstimatePage api={transactionAPI} state={estimate} onChange={setEstimate} fetchNearbyFacilities={fetchNearbyFacilities} />}
           </Suspense>
         ) : tab === "presales" ? (
           <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-slate-500">{t("status.loading")}</div>}>

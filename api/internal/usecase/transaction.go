@@ -75,6 +75,12 @@ func (service *TransactionService) completeMonth(ctx context.Context) (time.Time
 	return service.coverage, known, nil
 }
 
+// CompleteMonth returns the first day of the last month whose sales are fully registered,
+// and false when no season has been imported.
+func (service *TransactionService) CompleteMonth(ctx context.Context) (time.Time, bool, error) {
+	return service.completeMonth(ctx)
+}
+
 func (service *TransactionService) List(ctx context.Context, filter domain.TransactionFilter) ([]domain.Transaction, error) {
 	if err := validateFilter(filter); err != nil {
 		return nil, err
