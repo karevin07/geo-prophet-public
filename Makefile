@@ -1,6 +1,6 @@
 #!make
 .DEFAULT_GOAL := help
-.PHONY: install format lint test build dev-web dev-web-api dev-api docker docker-down migrate import-city import-addresses import-sales import-rentals import-presales import-facilities demo fixtures clean help
+.PHONY: install format lint test build dev-web dev-web-api dev-api docker docker-down migrate import-city import-addresses import-sales import-rentals import-presales import-current import-facilities import-transit demo fixtures clean help
 
 ##@ Setup
 install: ## install frontend and Go dependencies
@@ -69,8 +69,14 @@ import-presales: ## explicitly download presales; SEASON=115S2 CITY=a
 	@test -n "$(SEASON)" || { echo "SEASON is required"; exit 1; }
 	docker compose run --rm importer presales -season $(SEASON) -city $(CITY)
 
-import-facilities: ## download OpenStreetMap, NHI and school lists; locates them in cities with door numbers
-	docker compose run --rm importer facilities
+import-current: ## import the latest 10-day release of sales; CITY=a
+	docker compose run --rm importer sales -current -city $(CITY)
+
+import-facilities: ## download OpenStreetMap, NHI and school lists; locates them in cities with door numbers; SOURCE=osm,nhi,moe
+	docker compose run --rm importer facilities -source $(or $(SOURCE),osm,nhi,moe)
+
+import-transit: ## load rail stations from TDX; export TDX_CLIENT_ID and TDX_CLIENT_SECRET first
+	docker compose run --rm -e TDX_CLIENT_ID -e TDX_CLIENT_SECRET importer transit
 
 ##@ Online demo
 DEMO_BASE ?= /geo-prophet-public/

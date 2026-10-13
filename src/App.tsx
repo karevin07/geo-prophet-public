@@ -7,16 +7,18 @@ import TimeBar from "./components/TimeBar";
 import DemoBanner from "./components/demo/DemoBanner";
 import TopBar from "./components/TopBar";
 import type { FlyTarget } from "./components/Map";
+import type { CommunityHome } from "./components/communities/CommunityPage";
 import {
   BUILDING_TYPES, createTransactionAPI,
-  type BBox, type BuildingType, type DistrictBoundaries, type FeedQuery, type TransitLines, type TransitStation, type H3Aggregate, type Place, type SummaryWithYoY, type TransactionData, type TransactionQuery, type TrendPoint,
+  type BBox, type BuildingType, type DistrictBoundaries, type FeedQuery, type TransitLines, type TransitStation, type H3Aggregate, type Place, type RentLayer, type SummaryWithYoY, type TransactionData, type TransactionQuery, type TrendPoint,
 } from "./lib/api";
 import { adminAPI } from "./lib/api/admin";
 import { IS_DEMO } from "./lib/demo";
 import { useLanguage } from "./lib/i18n";
 import { priceBreaks, recentMonths } from "./lib/price-scale";
+import { rentBreaks, rentValue } from "./lib/rent-scale";
 import { loadLayerSettings, saveLayerSettings, type LayerSettings } from "./lib/layer-settings";
-import { DEFAULT_STATE, formatAppState, parseAppState, type AppState, type FeedState, type InvestmentState, type RentsState, type EstimateState, type PresalesState, type AreaState, type MapView as MapCamera, type Tab } from "./lib/url-state";
+import { DEFAULT_STATE, ESTIMATE_TYPES, formatAppState, parseAppState, type AppState, type FeedState, type InvestmentState, type RentsState, type EstimateState, type PresalesState, type AreaState, type MapView as MapCamera, type Tab } from "./lib/url-state";
 import { sameBBox } from "./lib/viewport";
 
 const transactionAPI = createTransactionAPI();
@@ -30,6 +32,7 @@ const EstimatePage = lazy(() => import("./components/estimate/EstimatePage"));
 const DemoUnavailable = lazy(() => import("./components/demo/DemoUnavailable"));
 const PresalesPage = lazy(() => import("./components/presales/PresalesPage"));
 const AreaPage = lazy(() => import("./components/area/AreaPage"));
+const CommunityPage = lazy(() => import("./components/communities/CommunityPage"));
 
 const PLACE_ZOOM = { district: 13, road: 15, address: 17 };
 
@@ -57,11 +60,13 @@ export default function App() {
   const setPresales = useCallback((update: Partial<PresalesState>) => setPresalesState((current) => ({ ...current, ...update })), []);
   const [area, setAreaState] = useState<AreaState>(initial.area);
   const setArea = useCallback((update: Partial<AreaState>) => setAreaState((current) => ({ ...current, ...update })), []);
+  const [community, setCommunity] = useState(initial.community);
   const [estimate, setEstimateState] = useState<EstimateState>(initial.estimate);
   const setEstimate = useCallback((update: Partial<EstimateState>) => setEstimateState((current) => ({ ...current, ...update })), []);
 
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [hexData, setHexData] = useState<H3Aggregate[]>([]);
+  const [rentLayer, setRentLayer] = useState<RentLayer | null>(null);
   const [trends, setTrends] = useState<TrendPoint[]>([]);
   const [summary, setSummary] = useState<SummaryWithYoY | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -94,8 +99,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   const appState = useMemo<AppState>(() => ({
-    tab, priceRange, areaRange, types: selectedTypes, includeSpecial, month, viewMode, h3Resolution, view: camera, station: stationId, feed, investment, rents, estimate, presales, area,
-  }), [tab, priceRange, areaRange, selectedTypes, includeSpecial, month, viewMode, h3Resolution, camera, stationId, feed, investment, rents, estimate, presales, area]);
+    tab, priceRange, areaRange, types: selectedTypes, includeSpecial, month, viewMode, h3Resolution, view: camera, station: stationId, feed, investment, rents, estimate, presales, area, community,
+  }), [tab, priceRange, areaRange, selectedTypes, includeSpecial, month, viewMode, h3Resolution, camera, stationId, feed, investment, rents, estimate, presales, area, community]);
 
   // Keep the URL in sync so links can be shared and reloads restore the view. Tabs push a
   // history entry (back/forward switch pages); everything else replaces the current one.
@@ -109,8 +114,19 @@ export default function App() {
     window.history.pushState(null, "", formatAppState({ ...appState, tab: next }));
   }, [appState]);
 
+  // Opens a community page, e.g. from a hexagon, a sale or the search box.
+  const showCommunity = useCallback((id: string) => {
+    setCommunity(id);
+    setTabState("community");
+    window.history.pushState(null, "", formatAppState({ ...appState, tab: "community", community: id }));
+  }, [appState]);
+
   useEffect(() => {
-    const restore = () => setTabState(parseAppState(window.location.pathname, window.location.search).tab);
+    const restore = () => {
+      const restored = parseAppState(window.location.pathname, window.location.search);
+      setTabState(restored.tab);
+      setCommunity(restored.community);
+    };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, []);
@@ -126,6 +142,10 @@ export default function App() {
   }, []);
 
   const handleSelectPlace = useCallback((place: Place) => {
+    if (place.kind === "community" && place.communityId) {
+      showCommunity(place.communityId);
+      return;
+    }
     if (place.kind === "station" && place.stationId) {
       // The map flies to the station itself, leaving room for its card.
       setFocusStationId(place.stationId);
@@ -133,11 +153,20 @@ export default function App() {
       return;
     }
     setFlyTarget({ lat: place.lat, lng: place.lng, zoom: PLACE_ZOOM[place.kind as keyof typeof PLACE_ZOOM] });
-  }, []);
+  }, [showCommunity]);
 
   // A new address starts a new estimate; the type stays as a starting guess.
   const estimatePlace = useCallback((place: Place) => {
     setEstimateState((current) => ({ ...DEFAULT_STATE.estimate, type: current.type, address: place.label, lat: place.lat, lng: place.lng }));
+    setTab("estimate");
+  }, [setTab]);
+
+  // Values a home in a community, starting from what the community tells about it.
+  const estimateCommunityHome = useCallback((home: CommunityHome) => {
+    setEstimateState({
+      ...DEFAULT_STATE.estimate, address: home.address, lat: home.lat, lng: home.lng, age: home.age, totalFloors: home.totalFloors,
+      type: (ESTIMATE_TYPES as readonly string[]).includes(home.type) ? home.type as EstimateState["type"] : DEFAULT_STATE.estimate.type,
+    });
     setTab("estimate");
   }, [setTab]);
 
@@ -331,6 +360,37 @@ export default function App() {
     };
   }, [query, viewMode, h3Resolution, tab]);
 
+  // Rents and yields replace the price colours; like the density view, they ignore the
+  // time bar and prices, so only the visible area, types and areas refetch them.
+  const rentMetric = layerSettings.metric !== "price" && !(layerSettings.facilityView === "density" && layerSettings.facilityGroups.length > 0)
+    ? layerSettings.metric : null;
+  const rentQuery = useMemo<TransactionQuery | null>(() => bbox && ({
+    priceRange: [0, Number.MAX_SAFE_INTEGER], areaRange, types: selectedTypes, bbox, includeSpecial: false,
+  }), [areaRange, selectedTypes, bbox]);
+  const showRent = rentMetric !== null && tab === "map";
+  useEffect(() => {
+    if (!showRent || !rentQuery) return;
+    if (rentQuery.types.length === 0) {
+      setRentLayer(null);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      transactionAPI.rentLayer(rentQuery, h3Resolution, controller.signal).then(setRentLayer).catch(() => undefined);
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [showRent, rentQuery, h3Resolution]);
+  const rentClassBreaks = useMemo(() => rentMetric && rentLayer
+    ? rentBreaks(rentLayer.cells.map((cell) => rentValue(cell, rentMetric) ?? Number.NaN), rentMetric)
+    : null, [rentMetric, rentLayer]);
+  const viewRents = useCallback((city: string, district: string) => {
+    setRents({ city: city as RentsState["city"], district });
+    setTab("rents");
+  }, [setRents, setTab]);
+
   // Colour classes follow what is on screen, so both dense and quiet areas show contrast.
   const breaks = useMemo(() => priceBreaks(
     viewMode === "hex" ? hexData.map((hex) => hex.avgPricePerPing) : transactions.map((sale) => sale.pricePerPing),
@@ -360,6 +420,10 @@ export default function App() {
                   onLayerSettingsChange={updateLayerSettings}
                   districtBoundaries={districtBoundaries}
                   fetchCellDetail={fetchCellDetail}
+                  rentLayer={rentMetric ? rentLayer : null}
+                  rentMetric={rentMetric}
+                  rentBreaks={rentClassBreaks}
+                  onViewRents={viewRents}
                   onViewDistrict={viewDistrictSales}
                   windowLabel={month ? month.replace("-", "/") : t("hex.window12")}
                   transitLines={transitLines}
@@ -373,6 +437,7 @@ export default function App() {
                   fetchNearbyFacilities={fetchNearbyFacilities}
                   fetchPresaleProjects={fetchPresaleProjects}
                   onShowProject={showProject}
+                  onShowCommunity={showCommunity}
                   isPanelOpen={isPanelOpen}
                   focusStationId={focusStationId}
                   onFocusStationHandled={() => setFocusStationId(null)}
@@ -415,8 +480,10 @@ export default function App() {
 
             <Legend breaks={breaks} showTransit={layerSettings.transit && stations.length > 0}
               density={layerSettings.facilityView === "density" && layerSettings.facilityGroups.length > 0}
-              facilityGroups={layerSettings.facilityGroups} presales={layerSettings.presales} />
-            <TimeBar months={months} month={month} setMonth={setMonth} isPlaying={isPlaying} setIsPlaying={setIsPlaying} />
+              facilityGroups={layerSettings.facilityGroups} presales={layerSettings.presales}
+              rent={rentMetric && { metric: rentMetric, breaks: rentClassBreaks, minimumSample: rentLayer?.minimumSample ?? 5 }} />
+            <TimeBar months={months} month={month} setMonth={setMonth} isPlaying={isPlaying} setIsPlaying={setIsPlaying}
+              fixedNote={rentMetric ? t("time.rentFixed") : null} />
           </>
         ) : tab === "analysis" ? (
           <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-slate-500">{t("status.loading")}</div>}>
@@ -459,7 +526,7 @@ export default function App() {
         ) : tab === "estimate" ? (
           <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-slate-500">{t("status.loading")}</div>}>
             {IS_DEMO ? <DemoUnavailable onAnalysis={() => setTab("analysis")} />
-              : <EstimatePage api={transactionAPI} state={estimate} onChange={setEstimate} fetchNearbyFacilities={fetchNearbyFacilities} />}
+              : <EstimatePage api={transactionAPI} state={estimate} onChange={setEstimate} fetchNearbyFacilities={fetchNearbyFacilities} onShowCommunity={showCommunity} />}
           </Suspense>
         ) : tab === "presales" ? (
           <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-slate-500">{t("status.loading")}</div>}>
@@ -467,7 +534,11 @@ export default function App() {
           </Suspense>
         ) : tab === "area" ? (
           <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-slate-500">{t("status.loading")}</div>}>
-            <AreaPage api={transactionAPI} state={area} onChange={setArea} onShowProject={showProject} onShowStation={showStation} />
+            <AreaPage api={transactionAPI} state={area} onChange={setArea} onShowProject={showProject} onShowStation={showStation} onShowCommunity={showCommunity} />
+          </Suspense>
+        ) : tab === "community" ? (
+          <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-slate-500">{t("status.loading")}</div>}>
+            <CommunityPage api={transactionAPI} id={community} onShowCommunity={showCommunity} onShowOnMap={showPoint} onEstimate={estimateCommunityHome} />
           </Suspense>
         ) : tab === "stations" ? (
           <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-slate-500">{t("status.loading")}</div>}>
@@ -491,6 +562,7 @@ export default function App() {
             api={transactionAPI}
             query={feedQuery}
             onShowOnMap={showOnMap}
+            onShowCommunity={IS_DEMO ? undefined : showCommunity}
             feed={feed}
             setFeed={setFeed}
             priceRange={priceRange}

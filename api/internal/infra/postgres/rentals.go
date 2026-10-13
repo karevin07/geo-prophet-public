@@ -273,3 +273,57 @@ func scanRows(ctx context.Context, repository *TransactionRepository, sql string
 	}
 	return rows.Err()
 }
+
+// MappedLeases streams the market leases located to an address inside the bounds, signed
+// between from and to (exclusive), of the filter's categories (residential ones when
+// empty), area and age. Social housing is left out.
+func (repository *TransactionRepository) MappedLeases(ctx context.Context, filter domain.TransactionFilter, from, to time.Time, emit func(domain.MappedLease) error) error {
+	where, args := mappedWhere("r", "leased_on", filter, from, to)
+	sql := `SELECT r.city_code, ST_Y(r.location::geometry), ST_X(r.location::geometry), r.leased_on, r.rent_per_ping,
+            r.monthly_rent, r.building_area_ping, r.rooms, r.building_category
+        FROM rentals r
+        WHERE ` + where + ` AND r.whole_unit AND NOT r.renewal AND NOT r.is_special AND NOT r.social_housing`
+	return scanRows(ctx, repository, sql, args, func(rows pgx.Rows) error {
+		var lease domain.MappedLease
+		if err := rows.Scan(&lease.CityCode, &lease.Lat, &lease.Lng, &lease.LeasedAt, &lease.RentPerPing,
+			&lease.MonthlyRent, &lease.AreaPing, &lease.Rooms, &lease.Category); err != nil {
+			return err
+		}
+		return emit(lease)
+	})
+}
+
+// MappedSales streams the market sales of the same homes as MappedLeases.
+func (repository *TransactionRepository) MappedSales(ctx context.Context, filter domain.TransactionFilter, from, to time.Time, emit func(domain.MappedSale) error) error {
+	where, args := mappedWhere("t", "transacted_on", filter, from, to)
+	sql := `SELECT ST_Y(t.location::geometry), ST_X(t.location::geometry), t.price_per_ping
+        FROM transactions t
+        WHERE ` + where + ` AND t.transaction_type LIKE '房地%' AND NOT t.is_special`
+	return scanRows(ctx, repository, sql, args, func(rows pgx.Rows) error {
+		var sale domain.MappedSale
+		if err := rows.Scan(&sale.Lat, &sale.Lng, &sale.PricePerPing); err != nil {
+			return err
+		}
+		return emit(sale)
+	})
+}
+
+// mappedWhere restricts a table aliased alias to homes located to an address inside the
+// filter's bounds and dated (by column) between from and to, exclusive.
+func mappedWhere(alias, column string, filter domain.TransactionFilter, from, to time.Time) (string, []any) {
+	categories := filter.Categories
+	if len(categories) == 0 {
+		categories = domain.BuildingCategories[:len(domain.BuildingCategories)-1]
+	}
+	bounds := filter.Bounds
+	args := []any{bounds.West, bounds.South, bounds.East, bounds.North, from, to, categories, filter.MinArea, filter.MaxArea}
+	where := withinBounds(alias+".location", "ST_MakeEnvelope($1, $2, $3, $4, 4326)") + fmt.Sprintf(`
+        AND %[1]s.geocode_precision IN ('address', 'nearby')
+        AND %[1]s.%[2]s >= $5 AND %[1]s.%[2]s < $6
+        AND %[1]s.building_category = ANY ($7) AND %[1]s.building_area_ping BETWEEN $8 AND $9`, alias, column)
+	if filter.ExcludeNewBuildings {
+		args = append(args, domain.NewBuildingYears)
+		where += fmt.Sprintf(" AND (%[1]s.building_age IS NULL OR %[1]s.building_age >= $10)", alias)
+	}
+	return where, args
+}

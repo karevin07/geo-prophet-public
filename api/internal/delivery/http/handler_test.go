@@ -840,6 +840,14 @@ func (*rentalRepositoryStub) StationRentTrends(context.Context, string, domain.R
 	return make([][]domain.RentPoint, 3), nil
 }
 
+func (*rentalRepositoryStub) MappedLeases(context.Context, domain.TransactionFilter, time.Time, time.Time, func(domain.MappedLease) error) error {
+	return nil
+}
+
+func (*rentalRepositoryStub) MappedSales(context.Context, domain.TransactionFilter, time.Time, time.Time, func(domain.MappedSale) error) error {
+	return nil
+}
+
 func TestRentalDistrictsParsesFilters(t *testing.T) {
 	if recorder := serve(t, &repositoryStub{}, "/api/v1/rentals/districts"); recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("without a database: got %d", recorder.Code)
@@ -853,6 +861,9 @@ func TestRentalDistrictsParsesFilters(t *testing.T) {
 		"/api/v1/rentals/districts?city=f&type=華廈&min_area=20&max_area=40&include_social=true": http.StatusOK,
 		"/api/v1/rentals/districts?include_social=maybe":                                       http.StatusBadRequest,
 		"/api/v1/rentals/districts?type=店面":                                                    http.StatusBadRequest,
+		"/api/v1/rentals/h3?bbox=121.5,25.0,121.6,25.1&resolution=9&types=華廈,其他":               http.StatusOK,
+		"/api/v1/rentals/h3?resolution=9":                                                      http.StatusBadRequest,
+		"/api/v1/rentals/h3?bbox=121.5,25.0,121.6,25.1&resolution=11":                          http.StatusBadRequest,
 	} {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, target, nil))
@@ -1026,5 +1037,89 @@ func TestFacilityRoutes(t *testing.T) {
 		if recorder.Code != want {
 			t.Errorf("%s: got %d, want %d", target, recorder.Code, want)
 		}
+	}
+}
+
+type communityRepositoryStub struct{}
+
+func stubCommunity(id, name string) domain.CommunityRecord {
+	record := domain.CommunityRecord{Street: "台北市大安區敦化南路", Doors: []string{"台北市大安區敦化南路1號"}}
+	record.ID, record.Name, record.CityCode, record.District, record.Category = id, name, "a", "大安區", "住宅大樓"
+	record.Lat, record.Lng = new(25.04), new(121.55)
+	return record
+}
+
+func (*communityRepositoryStub) ImportedSalesByCity(context.Context, string) ([]string, []string, error) {
+	return []string{"115S2"}, nil, nil
+}
+
+func (*communityRepositoryStub) Community(_ context.Context, id string) (domain.CommunityRecord, bool, error) {
+	return stubCommunity(id, ""), id == "abc123", nil
+}
+
+func (*communityRepositoryStub) CommunitiesByID(context.Context, []string) ([]domain.CommunityRecord, error) {
+	return nil, nil
+}
+
+func (*communityRepositoryStub) CommunitiesByDoor(context.Context, string) ([]domain.CommunityRecord, error) {
+	return nil, nil
+}
+
+func (*communityRepositoryStub) CommunitiesByName(_ context.Context, text string, _ int) ([]domain.CommunityRecord, error) {
+	return []domain.CommunityRecord{stubCommunity("named", text+"苑")}, nil
+}
+
+func (*communityRepositoryStub) CommunitySales(context.Context, string) ([]domain.Transaction, error) {
+	return nil, nil
+}
+
+func (*communityRepositoryStub) DistrictYearMedians(context.Context, string, string, string, time.Time) (map[int]float64, error) {
+	return nil, nil
+}
+
+func (*communityRepositoryStub) DistrictMedian(context.Context, string, string, string, time.Time, time.Time) (domain.CommunityStats, error) {
+	return domain.CommunityStats{}, nil
+}
+
+func (*communityRepositoryStub) CommunityLeases(context.Context, string, time.Time) (int, *float64, *float64, error) {
+	return 0, nil, nil, nil
+}
+
+func (*communityRepositoryStub) NearbyCommunities(context.Context, string, float64, int, int, time.Time, time.Time, int) ([]domain.CommunityRecord, []domain.NearbyCommunity, error) {
+	return nil, nil, nil
+}
+
+func (*communityRepositoryStub) RankedCommunities(context.Context, string, string, time.Time, time.Time, int) ([]domain.CommunityRecord, []domain.RankedCommunity, error) {
+	return nil, nil, nil
+}
+
+func TestCommunityRoutes(t *testing.T) {
+	if recorder := serve(t, &repositoryStub{}, "/api/v1/communities/abc123"); recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("without a database: got %d", recorder.Code)
+	}
+	gin.SetMode(gin.TestMode)
+	wired := services(&repositoryStub{})
+	wired.Communities = usecase.NewCommunityService(&communityRepositoryStub{})
+	router := delivery.NewRouter(delivery.NewHandler(wired), []string{"http://localhost:3000"})
+	for target, want := range map[string]int{
+		"/api/v1/communities/abc123": http.StatusOK,
+		"/api/v1/communities/nope":   http.StatusNotFound,
+		"/api/v1/communities?city=a&district=" + url.QueryEscape("大安區"): http.StatusOK,
+		"/api/v1/communities?city=a":                                    http.StatusBadRequest,
+	} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, target, nil))
+		if recorder.Code != want {
+			t.Errorf("%s: got %d, want %d", target, recorder.Code, want)
+		}
+	}
+
+	// Searches list communities first.
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/places?q="+url.QueryEscape("敦化"), nil))
+	var places struct{ Data []domain.Place }
+	if err := json.Unmarshal(recorder.Body.Bytes(), &places); err != nil || len(places.Data) < 2 ||
+		places.Data[0].Kind != domain.PlaceCommunity || places.Data[0].CommunityID != "named" || places.Data[0].Label != "敦化苑（大安區敦化南路1號）" {
+		t.Fatalf("unexpected search %d: %s", recorder.Code, recorder.Body.String())
 	}
 }

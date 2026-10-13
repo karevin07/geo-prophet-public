@@ -45,6 +45,12 @@ func TestSpecialReasons(t *testing.T) {
 		"僅建物交易,無土地持分;": {SpecialBuildingOnly},
 		"二親等間買賣親友、員工、共有人或其他特殊關係間之交易": {SpecialRelatedParty},
 		"協議價購;包含公共設施保留地用地;":          {SpecialGovernmentSale, SpecialPublicFacilityLand},
+		"區段徵收專案配售。土地及建物分次登記案件。":      {SpecialGovernmentSale},
+		"土地及建物分次登記案件。*向政府機構申購之案件":    {SpecialGovernmentSale},
+		"新北市政府安置住宅移轉":                {SpecialGovernmentSale},
+		"本案屬於國防部眷村改建配售":              {SpecialGovernmentSale},
+		"土地及建物分次登記案件。前案土地登記收件":       nil,
+		"陽台外推國民住宅":                   nil,
 	}
 	for remarks, want := range cases {
 		if got := specialReasons(remarks); !slices.Equal(got, want) {

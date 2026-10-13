@@ -35,6 +35,7 @@ func main() {
 	var liquidity *usecase.InvestmentLiquidityService
 	var estimates *usecase.EstimateService
 	var presales *usecase.PresaleService
+	var communities *usecase.CommunityService
 	var facilities *usecase.FacilityService
 	var dataStatus *usecase.DataStatusService
 	var admin *usecase.AdminService
@@ -56,6 +57,7 @@ func main() {
 		liquidity = usecase.NewInvestmentLiquidityService(postgresRepository)
 		estimates = usecase.NewEstimateService(postgresRepository)
 		presales = usecase.NewPresaleService(postgresRepository)
+		communities = usecase.NewCommunityService(postgresRepository)
 		facilities = usecase.NewFacilityService(postgresRepository)
 		dataStatus = usecase.NewDataStatusService(postgresRepository)
 		settings := usecase.AdminSettings{
@@ -79,7 +81,7 @@ func main() {
 	}
 	handler := delivery.NewHandler(delivery.Services{
 		Transactions: transactions, Places: usecase.NewPlaceService(repository), Feed: usecase.NewFeedService(repository),
-		Investment: usecase.NewInvestmentService(repository), Workbench: workbench, Liquidity: liquidity, Rentals: rentals, Estimates: estimates, Presales: presales, Facilities: facilities, Transit: transit, DataStatus: dataStatus, Admin: admin,
+		Investment: usecase.NewInvestmentService(repository), Workbench: workbench, Liquidity: liquidity, Rentals: rentals, Estimates: estimates, Presales: presales, Communities: communities, Facilities: facilities, Transit: transit, DataStatus: dataStatus, Admin: admin,
 	})
 	server := &http.Server{
 		Addr:              configuration.Address,

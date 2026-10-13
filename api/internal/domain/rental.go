@@ -142,3 +142,54 @@ type StationRent struct {
 	DistrictMedianRentPerPing *float64          `json:"districtMedianRentPerPing"`
 	Rings                     []StationRentRing `json:"rings"`
 }
+
+// MappedLease is a market lease located to an address, drawn on the map's rent layer.
+type MappedLease struct {
+	CityCode    string
+	Lat, Lng    float64
+	LeasedAt    time.Time
+	RentPerPing float64
+	MonthlyRent int64
+	AreaPing    float64
+	Rooms       int
+	Category    string
+}
+
+// MappedSale is a market sale located to an address, for the rent layer's gross yields.
+type MappedSale struct {
+	Lat, Lng     float64
+	PricePerPing float64
+}
+
+// RentLayer colours the map by rent: each H3 cell's new whole-home leases over three
+// years, adjusted to Through by their city's rent index, and its sales over the last year.
+type RentLayer struct {
+	From          string     `json:"from"`      // first month of leases, YYYY-MM
+	SalesFrom     string     `json:"salesFrom"` // first month of sales
+	Through       string     `json:"through"`   // last complete month of both
+	MinimumSample int        `json:"minimumSample"`
+	Cells         []RentCell `json:"cells"`
+}
+
+// RentCell is one H3 cell of the rent layer with at least the minimum sample of leases.
+// Rents are adjusted to the layer's Through month; the gross yield needs as many sales.
+type RentCell struct {
+	Hex                string          `json:"hex"`
+	Lat                float64         `json:"lat"`
+	Lng                float64         `json:"lng"`
+	Rentals            int             `json:"rentals"`
+	MedianRentPerPing  float64         `json:"medianRentPerPing"`
+	MedianMonthlyRent  float64         `json:"medianMonthlyRent"`
+	MedianAreaPing     float64         `json:"medianAreaPing"`
+	MainRooms          *int            `json:"mainRooms"` // the most common number of rooms, without studios
+	Categories         []CategoryShare `json:"categories"`
+	Sales              int             `json:"sales"`
+	MedianPricePerPing *float64        `json:"medianPricePerPing"`
+	GrossYield         *float64        `json:"grossYield"`
+}
+
+// CategoryShare is the share of a cell's leases in one building category.
+type CategoryShare struct {
+	Category string  `json:"category"`
+	Share    float64 `json:"share"`
+}

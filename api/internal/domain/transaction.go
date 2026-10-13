@@ -30,6 +30,9 @@ type Transaction struct {
 	Lat              float64 `json:"lat,omitempty"`
 	Lng              float64 `json:"lng,omitempty"`
 	GeocodePrecision string  `json:"geocodePrecision,omitempty"`
+	// CommunityID identifies the community of a 住宅大樓, 華廈 or 公寓 sale with a door
+	// number and completion date; empty otherwise.
+	CommunityID string `json:"communityId,omitempty"`
 	// IsNew marks sales first published in the latest 10-day release.
 	IsNew bool `json:"isNew,omitempty"`
 }

@@ -14,14 +14,16 @@
 - README、架構、操作指令與 Compose 已按公開用途調整，測試覆蓋與部署能力不一定和開發版相同。
 - 前端 mock 模式略過管理身分探測，不呼叫本機或正式管理 API。
 
-## Publication checklist
+## 發布方式
 
-1. 依白名單匯出單一已驗證版本，不使用 `git push --mirror`。
-2. 審查文件、測試、圖片及 generated assets；不只依賴 `.gitignore`。
-3. 執行秘密掃描與人工檢查，review 新增／修改的檔案。
-4. 在乾淨環境執行 `npm ci`、`make lint test build` 和 mock 啟動驗證。
-5. 確認 `.env`、備份、真實 fixture、私有發布權限未出現在 commit。
-6. 人工確認後再建立公開 commit、設定 GitHub remote 與推送。
+開發版本打上 release tag（例如 `v1.2.3`）後，自動化流程會：
+
+1. 依白名單匯出該版本，套用公開版文件，不使用 `git push --mirror`。
+2. 檢查禁止內容、文件中的連結與 `make` 指令，再用 gitleaks 掃描秘密。
+3. 在匯出結果上執行 Go 與前端的 lint、測試和建置。
+4. 全部通過後才 commit 到這份 repo 的 `main`（`chore: release v1.2.3`），並打上同名 tag。
+
+任何一步失敗都不會推送。每個 release tag 對應這份 repo 的一個 commit；`.env`、備份、真實 fixture 與發布權限不在匯出範圍內。
 
 首次公開前，建議用專業 secret scanner 檢查工作樹與要發布的 Git 歷史。白名單匯出和簡單樣式檢查不能取代完整安全稽核。
 

@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react
 import { ArrowRight, TriangleAlert } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type {
-  CityFacilities, DistrictBoundaries, DistrictComparison, PresaleProject, RentalReport, RentTrend, StationRanking, TransactionAPI, TransitStation,
+  CityFacilities, CommunityRanking, DistrictBoundaries, DistrictComparison, PresaleProject, RentalReport, RentTrend, StationRanking, TransactionAPI, TransitStation,
 } from "../../lib/api";
 import { CITY_NAMES } from "../../lib/data-status";
 import { IS_DEMO } from "../../lib/demo";
@@ -32,6 +32,7 @@ interface Props {
   onChange: (update: Partial<AreaState>) => void;
   onShowProject: (project: { key: string; cityCode: string }) => void;
   onShowStation: (station: TransitStation) => void;
+  onShowCommunity: (id: string) => void;
 }
 
 /** Loads a value for the given dependencies; a failure leaves it null. */
@@ -54,7 +55,7 @@ function rankOf<T>(rows: T[], key: (row: T) => number | null, target: (row: T) =
   return index < 0 ? null : { rank: index + 1, total: valued.length };
 }
 
-export default function AreaPage({ api, state, onChange, onShowProject, onShowStation }: Props) {
+export default function AreaPage({ api, state, onChange, onShowProject, onShowStation, onShowCommunity }: Props) {
   const { t } = useLanguage();
   const city = state.city;
   const months = useMemo(() => recentMonths(new Date(), 12), []);
@@ -77,6 +78,9 @@ export default function AreaPage({ api, state, onChange, onShowProject, onShowSt
   const rents = useLoad<RentalReport>((signal) => api.rentalDistricts(rentQuery, signal), [api, rentQuery]);
   const rentTrend = useLoad<RentTrend>((signal) => district ? api.rentalTrend(rentQuery, district, signal) : Promise.reject(new Error("no district")), [api, rentQuery, district]);
   const presales = useLoad<PresaleProject[]>((signal) => district ? api.presaleProjects({ city, district, months: 12 }, signal).then((result) => result.projects)
+    : Promise.reject(new Error("no district")), [api, city, district]);
+  // The demo's snapshot has no communities.
+  const communities = useLoad<CommunityRanking>((signal) => district && !IS_DEMO ? api.communityRanking(city, district, signal)
     : Promise.reject(new Error("no district")), [api, city, district]);
   const facilities = useLoad<CityFacilities>((signal) => api.districtFacilities(city, signal), [api, city]);
   const boundaries = useLoad<DistrictBoundaries>((signal) => api.districtBoundaries(city, signal), [api, city]);
@@ -251,6 +255,26 @@ export default function AreaPage({ api, state, onChange, onShowProject, onShowSt
                 ))}
               </ul>}
           </section>
+
+          {!IS_DEMO && <section className={card}>
+            <CardTitle title={t("area.communities.title")} hint={t("area.communities.hint")} />
+            {communities === null ? <div className="mt-3 h-40 animate-pulse rounded-xl bg-slate-100" /> : communities.communities.length === 0
+              ? <p className="mt-3 text-sm text-slate-500">{t("area.communities.empty")}</p>
+              : <ul className="mt-3 divide-y divide-slate-100">
+                {communities.communities.slice(0, 6).map((community) => (
+                  <li key={community.id}>
+                    <button type="button" onClick={() => onShowCommunity(community.id)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left hover:bg-slate-50">
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold text-slate-900">{community.name || community.address}</span>
+                        <span className="text-xs text-slate-500">{[community.name && community.address, community.category,
+                          fill(t("area.communities.meta"), { year: community.completedOn.slice(0, 4), count: community.recentSales })].filter(Boolean).join(" · ")}</span>
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">{community.medianPricePerPing === null ? "—" : `${formatWan(community.medianPricePerPing)} ${t("chart.unit")}`}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>}
+          </section>}
 
           <section className={card}>
             <CardTitle title={t("area.facilities.title")} hint={t("area.facilities.hint")} legend={[[district, "#1f6f78"], [t("area.facilities.cityAverage"), "#cbd5e1"]]} />

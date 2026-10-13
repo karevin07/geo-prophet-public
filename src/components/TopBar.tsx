@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { Activity, Building2, ChartNoAxesCombined, Check, ChevronDown, CircleDollarSign, HelpCircle, Map as MapIcon, MapPin, Menu, Scale, ShieldCheck, TrainFront, X, type LucideIcon } from "lucide-react";
+import { Activity, Building, Building2, ChartNoAxesCombined, Check, ChevronDown, CircleDollarSign, HelpCircle, Map as MapIcon, MapPin, Menu, Scale, ShieldCheck, TrainFront, X, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useLanguage } from "../lib/i18n";
 import { VISIBLE_NAVIGATION_GROUPS, navigationGroup, navigationHref, type NavigationGroup } from "../lib/navigation";
@@ -17,7 +17,7 @@ interface TopBarProps {
 const ICONS: Record<Tab, LucideIcon> = {
   map: MapIcon, feed: Activity, analysis: ChartNoAxesCombined, rents: CircleDollarSign,
   presales: Building2, area: MapPin, districts: Scale, stations: TrainFront,
-  investment: ChartNoAxesCombined, estimate: CircleDollarSign,
+  investment: ChartNoAxesCombined, estimate: CircleDollarSign, community: Building,
 };
 const focusStyle = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2";
 

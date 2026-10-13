@@ -1,5 +1,5 @@
 import type { LocalSales } from "./local-sales";
-import type { AnalysisQuery, BBox, BuildingProfile, CellDetail, CityFacilities, DistanceBucket, DistrictBoundaries, DistrictComparison, DistrictQuery, Estimate, FacilityCell, FacilityList, FeedPage, FeedQuery, H3Aggregate, InvestmentLiquidityReport, InvestmentQuery, InvestmentReport, InvestmentWorkbenchReport, MarketAnalysis, NearbyFacilities, OpeningEffects, Place, PresaleProjectDetail, PresaleProjects, Region, RentalQuery, RentalReport, RentTrend, StationRadius, StationRanking, StationRent, StationTrend, StationYoYs, SummaryWithYoY, TransactionAPI, TransactionData, TransactionQuery, TransitLines, TransitStation, TrendPoint } from "./types";
+import type { AnalysisQuery, BBox, BuildingProfile, CellDetail, CommunityDetail, CommunityRanking, CityFacilities, DistanceBucket, DistrictBoundaries, DistrictComparison, DistrictQuery, Estimate, FacilityCell, FacilityList, FeedPage, FeedQuery, H3Aggregate, InvestmentLiquidityReport, InvestmentQuery, InvestmentReport, InvestmentWorkbenchReport, MarketAnalysis, NearbyFacilities, OpeningEffects, Place, PresaleProjectDetail, PresaleProjects, Region, RentalQuery, RentalReport, RentLayer, RentTrend, StationRadius, StationRanking, StationRent, StationTrend, StationYoYs, SummaryWithYoY, TransactionAPI, TransactionData, TransactionQuery, TransitLines, TransitStation, TrendPoint } from "./types";
 
 /**
  * Answers without an API: sales queries from LocalSales, everything else empty, so those
@@ -92,6 +92,11 @@ export abstract class LocalTransactionAPI implements TransactionAPI {
     return { cityCode: city, city: { district: "", areaKm2: 0, counts: {} }, districts: [] };
   }
 
+  // Leases are not in the snapshot or the mock data.
+  async rentLayer(): Promise<RentLayer> {
+    return { from: "", salesFrom: "", through: "", minimumSample: 5, cells: [] };
+  }
+
   async facilityDensity(): Promise<FacilityCell[]> {
     return [];
   }
@@ -104,6 +109,15 @@ export abstract class LocalTransactionAPI implements TransactionAPI {
     throw new Error(`no presale project ${key}`);
   }
 
+  // Communities are grouped by door number and completion date in the database.
+  async community(id: string): Promise<CommunityDetail> {
+    throw new Error(`no community ${id}`);
+  }
+
+  async communityRanking(city: string, district: string): Promise<CommunityRanking> {
+    return { cityCode: city, district, from: "", through: "", communities: [] };
+  }
+
   // Estimates need door numbers and comparable-sale searches, so they are always insufficient.
   async estimate(): Promise<Estimate> {
     return {
@@ -114,7 +128,7 @@ export abstract class LocalTransactionAPI implements TransactionAPI {
   }
 
   async estimateBuilding(address: string): Promise<BuildingProfile> {
-    return { address, sales: 0, category: "", completedYear: null, totalFloors: null, lastSale: "" };
+    return { address, sales: 0, category: "", completedYear: null, totalFloors: null, lastSale: "", community: null };
   }
 
   // Rail stations come from the TDX import, which needs an API key.

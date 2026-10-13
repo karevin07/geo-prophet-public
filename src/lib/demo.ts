@@ -7,7 +7,7 @@ export const IS_DEMO = import.meta.env.VITE_DATA_SOURCE === "snapshot";
 export const DEMO_REPOSITORY_URL: string = import.meta.env.VITE_DEMO_REPOSITORY_URL ?? "";
 
 /** Pages whose data the snapshot does not hold yet. */
-const DEMO_HIDDEN_TABS: readonly Tab[] = ["rents", "presales", "investment", "stations"];
+const DEMO_HIDDEN_TABS: readonly Tab[] = ["rents", "presales", "investment", "stations", "community"];
 
 export function tabAvailable(tab: Tab): boolean {
   return !IS_DEMO || !DEMO_HIDDEN_TABS.includes(tab);

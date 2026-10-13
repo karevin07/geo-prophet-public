@@ -1,4 +1,4 @@
-import type { BBox, DistanceBucket, OpeningEffects, StationRanking, CellDetail, DistrictBoundaries, StationRadius, StationTrend, StationYoYs, TransitLines, TransitStation, AnalysisQuery, DistrictComparison, DistrictQuery, FeedPage, FeedQuery, H3Aggregate, InvestmentQuery, InvestmentReport, InvestmentWorkbenchReport, MarketAnalysis, BuildingProfile, CityFacilities, Estimate, EstimateQuery, FacilityCell, FacilityList, NearbyFacilities, PresaleProjectDetail, PresaleProjects, RentalQuery, RentalReport, RentTrend, StationRent, Place, Region, SummaryWithYoY, TransactionAPI, TransactionData, TransactionQuery, TrendPoint } from "./types";
+import type { BBox, CommunityDetail, CommunityRanking, DistanceBucket, OpeningEffects, StationRanking, CellDetail, DistrictBoundaries, StationRadius, StationTrend, StationYoYs, TransitLines, TransitStation, AnalysisQuery, DistrictComparison, DistrictQuery, FeedPage, FeedQuery, H3Aggregate, InvestmentQuery, InvestmentReport, InvestmentWorkbenchReport, MarketAnalysis, BuildingProfile, CityFacilities, Estimate, EstimateQuery, FacilityCell, FacilityList, NearbyFacilities, PresaleProjectDetail, PresaleProjects, RentalQuery, RentalReport, RentLayer, RentTrend, StationRent, Place, Region, SummaryWithYoY, TransactionAPI, TransactionData, TransactionQuery, TrendPoint } from "./types";
 
 import type { InvestmentLiquidityReport } from "./types";
 
@@ -96,6 +96,13 @@ export class HTTPTransactionAPI implements TransactionAPI {
     return (await this.get<CollectionResponse<H3Aggregate>>(`${this.baseURL}/api/v1/aggregations/h3?${params}`, signal)).data;
   }
 
+  async rentLayer(query: TransactionQuery, resolution: number, signal?: AbortSignal): Promise<RentLayer> {
+    // The layer uses fixed windows, so the map's month does not apply.
+    const params = queryParams({ ...query, month: undefined });
+    params.set("resolution", String(resolution));
+    return (await this.get<{ data: RentLayer }>(`${this.baseURL}/api/v1/rentals/h3?${params}`, signal)).data;
+  }
+
   async trends(query: TransactionQuery, signal?: AbortSignal): Promise<TrendPoint[]> {
     return (await this.get<CollectionResponse<TrendPoint>>(`${this.baseURL}/api/v1/trends?${queryParams(query)}`, signal)).data;
   }
@@ -169,6 +176,14 @@ export class HTTPTransactionAPI implements TransactionAPI {
 
   async presaleProject(key: string, signal?: AbortSignal): Promise<PresaleProjectDetail> {
     return (await this.get<{ data: PresaleProjectDetail }>(`${this.baseURL}/api/v1/presales/project?${new URLSearchParams({ key })}`, signal)).data;
+  }
+
+  async community(id: string, signal?: AbortSignal): Promise<CommunityDetail> {
+    return (await this.get<{ data: CommunityDetail }>(`${this.baseURL}/api/v1/communities/${encodeURIComponent(id)}`, signal)).data;
+  }
+
+  async communityRanking(city: string, district: string, signal?: AbortSignal): Promise<CommunityRanking> {
+    return (await this.get<{ data: CommunityRanking }>(`${this.baseURL}/api/v1/communities?${new URLSearchParams({ city, district })}`, signal)).data;
   }
 
   async estimate(query: EstimateQuery, signal?: AbortSignal): Promise<Estimate> {

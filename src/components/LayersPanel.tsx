@@ -3,7 +3,7 @@ import { IS_DEMO } from "../lib/demo";
 import type { FacilityGroup } from "../lib/api";
 import { FACILITY_GROUPS, GROUP_COLORS } from "../lib/facilities";
 import { useLanguage } from "../lib/i18n";
-import { cn } from "../lib/utils";
+import { cn, fill } from "../lib/utils";
 import type { LayerSettings } from "../lib/layer-settings";
 import FacilityIcon from "./FacilityIcon";
 import { Switch } from "./ui";
@@ -16,9 +16,11 @@ interface LayersPanelProps {
   facilityCounts: Partial<Record<FacilityGroup, number>>;
   /** Presale projects drawn on the map now, when the layer is on. */
   presaleCount: number | null;
+  /** The rent layer's last month, YYYY-MM, once loaded. */
+  rentThrough: string | null;
 }
 
-export default function LayersPanel({ settings, onChange, onClose, facilityCounts, presaleCount }: LayersPanelProps) {
+export default function LayersPanel({ settings, onChange, onClose, facilityCounts, presaleCount, rentThrough }: LayersPanelProps) {
   const { t } = useLanguage();
   const percent = Math.round(settings.opacity * 100);
   return (
@@ -32,6 +34,29 @@ export default function LayersPanel({ settings, onChange, onClose, facilityCount
           <X className="h-4 w-4" />
         </button>
       </div>
+
+      {/* The demo's snapshot holds no leases. */}
+      {!IS_DEMO && <div className="mb-4">
+        <div className="mb-2 text-xs text-slate-600">{t("layers.metric")}</div>
+        <div className="grid grid-cols-3 rounded-lg bg-slate-100 p-1" role="group" aria-label={t("layers.metric")}>
+          {(["price", "rent", "yield"] as const).map((metric) => (
+            <button
+              key={metric}
+              // Rents and yields replace the price layer, as the density view does.
+              onClick={() => onChange({ metric, facilityView: metric === "price" ? settings.facilityView : "price" })}
+              aria-pressed={settings.metric === metric}
+              className={cn("rounded-md py-1.5 text-xs font-medium", settings.metric === metric ? "bg-brand-600 text-white shadow-sm" : "text-slate-600")}
+            >
+              {t(`layers.metric.${metric}`)}
+            </button>
+          ))}
+        </div>
+        {settings.metric !== "price" && (
+          <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-2 text-[10px] leading-relaxed text-slate-500">
+            {fill(t(settings.metric === "rent" ? "layers.rentNote" : "layers.yieldNote"), { through: rentThrough ? rentThrough.replace("-", "/") : "—" })}
+          </p>
+        )}
+      </div>}
 
       <div className="mb-1 flex justify-between text-xs text-slate-600">
         <span>{t("layers.opacity")}</span>
@@ -92,7 +117,10 @@ export default function LayersPanel({ settings, onChange, onClose, facilityCount
           {(["price", "density"] as const).map((view) => (
             <button
               key={view}
-              onClick={() => onChange({ facilityView: view, facilityGroups: view === "density" && settings.facilityGroups.length === 0 ? [...FACILITY_GROUPS] : settings.facilityGroups })}
+              onClick={() => onChange({
+                facilityView: view, facilityGroups: view === "density" && settings.facilityGroups.length === 0 ? [...FACILITY_GROUPS] : settings.facilityGroups,
+                metric: view === "density" ? "price" : settings.metric,
+              })}
               aria-pressed={settings.facilityView === view}
               className={cn("rounded-md py-1.5 text-xs font-medium", settings.facilityView === view ? "bg-brand-600 text-white shadow-sm" : "text-slate-600")}
             >

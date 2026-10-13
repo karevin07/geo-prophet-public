@@ -19,6 +19,28 @@ type rentalRepositoryStub struct {
 	stationFound               bool
 	districtMedian             *float64
 	ringTrends                 [][]domain.RentPoint
+	leases                     []domain.MappedLease
+	sales                      []domain.MappedSale
+	filter                     domain.TransactionFilter
+}
+
+func (stub *rentalRepositoryStub) MappedLeases(_ context.Context, filter domain.TransactionFilter, from, to time.Time, emit func(domain.MappedLease) error) error {
+	stub.filter, stub.from, stub.to = filter, from, to
+	for _, lease := range stub.leases {
+		if err := emit(lease); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (stub *rentalRepositoryStub) MappedSales(_ context.Context, _ domain.TransactionFilter, _, _ time.Time, emit func(domain.MappedSale) error) error {
+	for _, sale := range stub.sales {
+		if err := emit(sale); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (stub *rentalRepositoryStub) ImportedSalesByCity(context.Context, string) ([]string, []string, error) {

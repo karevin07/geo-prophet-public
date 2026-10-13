@@ -49,7 +49,7 @@ func (repository *TransactionRepository) Ping(ctx context.Context) error {
 const transactionSelectColumns = `id, city_code, district, address, transaction_type, building_type, main_use,
         total_price, parking_price, building_price, building_area_ping, price_per_ping, rooms, halls, baths,
         floor_label, COALESCE(total_floors, 0), completed_on, transacted_on, remarks, special_reasons, season,
-        ST_Y(location::geometry), ST_X(location::geometry), geocode_precision`
+        ST_Y(location::geometry), ST_X(location::geometry), geocode_precision, COALESCE(community_key, '')`
 
 func scanTransaction(row pgx.CollectableRow) (domain.Transaction, error) {
 	var transaction domain.Transaction
@@ -58,7 +58,8 @@ func scanTransaction(row pgx.CollectableRow) (domain.Transaction, error) {
 		&transaction.ParkingPrice, &transaction.BuildingPrice, &transaction.BuildingAreaPing, &transaction.PricePerPing,
 		&transaction.Rooms, &transaction.Halls, &transaction.Baths, &transaction.FloorLabel, &transaction.TotalFloors,
 		&transaction.CompletedAt, &transaction.TransactedAt, &transaction.Remarks, &transaction.SpecialReasons,
-		&transaction.Season, &transaction.Lat, &transaction.Lng, &transaction.GeocodePrecision, &transaction.IsNew)
+		&transaction.Season, &transaction.Lat, &transaction.Lng, &transaction.GeocodePrecision, &transaction.CommunityID,
+		&transaction.IsNew)
 	return transaction, err
 }
 
@@ -471,7 +472,7 @@ func (repository *TransactionRepository) CellRows(ctx context.Context, filter do
 	where, args := whereClause(filter)
 	args = append(args, filter.Limit)
 	query := fmt.Sprintf(`SELECT city_code, district, address, ST_Y(location::geometry), ST_X(location::geometry),
-        transacted_on, total_price, building_price, building_area_ping, building_age
+        transacted_on, total_price, building_price, building_area_ping, building_age, COALESCE(community_key, '')
         FROM transactions WHERE %s LIMIT $%d`, where, len(args))
 	rows, err := repository.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -480,7 +481,7 @@ func (repository *TransactionRepository) CellRows(ctx context.Context, filter do
 	cellRows, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.CellRow, error) {
 		var cell domain.CellRow
 		err := row.Scan(&cell.CityCode, &cell.District, &cell.Address, &cell.Lat, &cell.Lng, &cell.TransactedAt,
-			&cell.TotalPrice, &cell.BuildingPrice, &cell.AreaPing, &cell.BuildingAge)
+			&cell.TotalPrice, &cell.BuildingPrice, &cell.AreaPing, &cell.BuildingAge, &cell.CommunityID)
 		return cell, err
 	})
 	if err != nil {
@@ -591,15 +592,36 @@ func whereClause(filter domain.TransactionFilter) (string, []any) {
 		conditions = append(conditions, "building_category = ANY("+next(filter.Categories)+")")
 	}
 	if filter.Bounds != nil {
-		// && on geography uses the GiST index on location.
-		conditions = append(conditions, fmt.Sprintf("location && ST_MakeEnvelope(%s, %s, %s, %s, 4326)::GEOGRAPHY",
-			next(filter.Bounds.West), next(filter.Bounds.South), next(filter.Bounds.East), next(filter.Bounds.North)))
+		envelope := fmt.Sprintf("ST_MakeEnvelope(%s, %s, %s, %s, 4326)",
+			next(filter.Bounds.West), next(filter.Bounds.South), next(filter.Bounds.East), next(filter.Bounds.North))
+		conditions = append(conditions, withinBounds("location", envelope))
 	}
 	if filter.From != nil {
 		conditions = append(conditions, "transacted_on >= "+next(*filter.From))
 	}
-	if filter.To != nil {
-		conditions = append(conditions, "transacted_on <= "+next(*filter.To))
+	// A sale dated after today is a typo in the source (flagged invalid_date), e.g.
+	// 2026-10-24 registered in 115S1, so the window ends today at the latest; the default
+	// one runs to the end of this month.
+	to := today()
+	if filter.To != nil && filter.To.Before(to) {
+		to = *filter.To
 	}
+	conditions = append(conditions, "transacted_on <= "+next(to))
 	return strings.Join(conditions, " AND "), args
+}
+
+// taipei is Taiwan's time zone, where sales are dated.
+var taipei = time.FixedZone("Asia/Taipei", 8*60*60)
+
+// today is the current date in Taiwan, at midnight UTC like the dates sales carry.
+func today() time.Time {
+	year, month, day := time.Now().In(taipei).Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+}
+
+// withinBounds keeps the geography column inside the longitude/latitude envelope. && on
+// geography uses the GiST index but compares geocentric boxes, which reach past a box's
+// edges (by 0.008° on a 0.06° viewport); && on geometry then trims to the box itself.
+func withinBounds(column, envelope string) string {
+	return fmt.Sprintf("%[1]s && %[2]s::GEOGRAPHY AND %[1]s::GEOMETRY && %[2]s", column, envelope)
 }

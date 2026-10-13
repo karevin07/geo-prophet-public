@@ -5,6 +5,8 @@ import { useLanguage } from "../lib/i18n";
 import FacilityIcon from "./FacilityIcon";
 import { formatWan, PRICE_CLASSES, type PriceBreaks } from "../lib/price-scale";
 import { yoyColor } from "../lib/transit";
+import { formatRentValue, type MapMetric } from "../lib/rent-scale";
+import { fill } from "../lib/utils";
 
 const labels = ["legend.low", "legend.midLow", "legend.mid", "legend.high"];
 
@@ -17,9 +19,11 @@ interface LegendProps {
   density: boolean;
   facilityGroups: FacilityGroup[];
   presales: boolean;
+  /** Rents or yields replace the price classes. */
+  rent?: { metric: Exclude<MapMetric, "price">; breaks: PriceBreaks | null; minimumSample: number } | null;
 }
 
-export default function Legend({ breaks, showTransit, density, facilityGroups, presales }: LegendProps) {
+export default function Legend({ breaks, showTransit, density, facilityGroups, presales, rent }: LegendProps) {
   const { t } = useLanguage();
   const ranges = breaks
     ? [`< ${formatWan(breaks[0], 0)}`, `${formatWan(breaks[0], 0)} – ${formatWan(breaks[1], 0)}`, `${formatWan(breaks[1], 0)} – ${formatWan(breaks[2], 0)}`, `≥ ${formatWan(breaks[2], 0)}`]
@@ -43,6 +47,8 @@ export default function Legend({ breaks, showTransit, density, facilityGroups, p
             </li>
           </ul>
         </>
+      ) : rent ? (
+        <RentLegend {...rent} />
       ) : (
         <>
           <h3 className="mb-2 text-xs font-semibold text-slate-700">{t("legend.title")}</h3>
@@ -97,5 +103,30 @@ export default function Legend({ breaks, showTransit, density, facilityGroups, p
       )}
       {IS_DEMO && <p className="mt-2 border-t border-slate-100 pt-2 text-[10px] leading-relaxed text-slate-400">{t("demo.attribution")}</p>}
     </div>
+  );
+}
+
+function RentLegend({ metric, breaks, minimumSample }: NonNullable<LegendProps["rent"]>) {
+  const { t } = useLanguage();
+  const format = (value: number) => formatRentValue(value, metric);
+  const ranges = breaks
+    ? [`< ${format(breaks[0])}`, `${format(breaks[0])} – ${format(breaks[1])}`, `${format(breaks[1])} – ${format(breaks[2])}`, `≥ ${format(breaks[2])}`]
+    : ["—", "—", "—", "—"];
+  return (
+    <>
+      <h3 className="mb-2 text-xs font-semibold text-slate-700">{t(`rentLegend.${metric}`)}</h3>
+      <ul className="space-y-1.5">
+        {[3, 2, 1, 0].map((index) => (
+          <li key={index} className="flex items-center gap-2 text-xs">
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: PRICE_CLASSES[index].hex, opacity: 0.85 }} />
+            <span className="flex-1 text-slate-600">{t(`rentLegend.level${index}`)}</span>
+            <span className="font-medium tabular-nums text-slate-800">{ranges[index]}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 hidden border-t border-slate-100 pt-2 text-[11px] text-slate-400 sm:block">
+        {fill(t(metric === "rent" ? "rentLegend.caption" : "rentLegend.yieldCaption"), { count: minimumSample })}
+      </p>
+    </>
   );
 }

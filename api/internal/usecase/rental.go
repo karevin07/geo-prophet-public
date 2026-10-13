@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/geo-prophet/geo-prophet/api/internal/addresspoint"
@@ -35,14 +36,30 @@ type RentalRepository interface {
 	StationDistrict(ctx context.Context, stationID string) (city, district string, found bool, err error)
 	StationRentRings(ctx context.Context, stationID, district string, query domain.RentalQuery, from, to time.Time) ([]domain.RentalAggregate, *float64, error)
 	StationRentTrends(ctx context.Context, stationID string, query domain.RentalQuery, first, last time.Time) ([][]domain.RentPoint, error)
+	MappedLeases(ctx context.Context, filter domain.TransactionFilter, from, to time.Time, emit func(domain.MappedLease) error) error
+	MappedSales(ctx context.Context, filter domain.TransactionFilter, from, to time.Time, emit func(domain.MappedSale) error) error
 }
 
 type RentalService struct {
 	repository RentalRepository
+	now        func() time.Time
+
+	indexesMu sync.Mutex
+	indexes   map[string]cachedRentIndex
 }
 
+// cachedRentIndex keeps a city's rent index for the rent layer: it takes about 0.3 s per
+// city, each map move asks for it, and it changes only after imports.
+type cachedRentIndex struct {
+	at      time.Time
+	byMonth map[string]float64
+}
+
+// rentIndexTTL bounds how long an import takes to show in the rent layer's adjustment.
+const rentIndexTTL = 10 * time.Minute
+
 func NewRentalService(repository RentalRepository) *RentalService {
-	return &RentalService{repository: repository}
+	return &RentalService{repository: repository, now: time.Now, indexes: map[string]cachedRentIndex{}}
 }
 
 // CompareDistricts reports each district's rent and gross yield over the last 12 months

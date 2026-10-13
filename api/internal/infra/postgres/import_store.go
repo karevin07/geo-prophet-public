@@ -171,6 +171,12 @@ func (store *ImportStore) UpsertTransactions(ctx context.Context, runID int64, t
 		for _, column := range transactionColumns[1:] {
 			updates = append(updates, column+" = EXCLUDED."+column)
 		}
+		// Corrections may move a sale to another community, so both are rebuilt.
+		if _, err := tx.Exec(ctx, `CREATE TEMP TABLE communities_touched ON COMMIT DROP AS
+            SELECT community_key FROM transactions
+            WHERE id IN (SELECT id FROM transactions_staging) AND community_key IS NOT NULL`); err != nil {
+			return fmt.Errorf("collect communities: %w", err)
+		}
 		columnList := strings.Join(transactionColumns, ", ")
 		query := fmt.Sprintf(`INSERT INTO transactions (%s, location, import_run_id)
             SELECT DISTINCT ON (id) %s,
@@ -190,6 +196,12 @@ func (store *ImportStore) UpsertTransactions(ctx context.Context, runID int64, t
 		}
 		if _, err := tx.Exec(ctx, fmt.Sprintf(insertStationDistances, "t.id IN (SELECT id FROM transactions_staging)")); err != nil {
 			return fmt.Errorf("measure station distances: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `SELECT refresh_communities(ARRAY(
+            SELECT community_key FROM communities_touched
+            UNION SELECT community_key FROM transactions
+            WHERE id IN (SELECT id FROM transactions_staging) AND community_key IS NOT NULL))`); err != nil {
+			return fmt.Errorf("refresh communities: %w", err)
 		}
 		return nil
 	})
@@ -333,6 +345,12 @@ func (store *ImportStore) UpsertPresales(ctx context.Context, runID int64, presa
 		}
 		if _, err := tx.Exec(ctx, `SELECT refresh_presale_projects(ARRAY(SELECT project_key FROM presales_touched))`); err != nil {
 			return fmt.Errorf("refresh presale projects: %w", err)
+		}
+		// Projects name communities in their district, so those are named again.
+		if _, err := tx.Exec(ctx, `SELECT name_communities(ARRAY(
+            SELECT DISTINCT city_code || '|' || district FROM presale_projects
+            WHERE project_key IN (SELECT project_key FROM presales_touched)))`); err != nil {
+			return fmt.Errorf("name communities: %w", err)
 		}
 		return nil
 	})

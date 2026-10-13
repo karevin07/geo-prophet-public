@@ -27,12 +27,17 @@ func TestCellDetail(t *testing.T) {
 	road := "台北市大安區敦化南路一段187巷12號"
 	var rows []domain.CellRow
 	// Six sales in the map window (2025-10..2026-09) at 100萬/坪 with varied ages.
+	// Three are in community b, two in a; communities of earlier sales do not count.
 	for index, age := range []*int{years(2), years(20), years(20), years(40), nil, years(8)} {
-		rows = append(rows, sale(lat+float64(index)*1e-5, lng, "2025-11", 30_000_000, 30, age, road))
+		row := sale(lat+float64(index)*1e-5, lng, "2025-11", 30_000_000, 30, age, road)
+		row.CommunityID = []string{"b", "b", "a", "a", "", "b"}[index]
+		rows = append(rows, row)
 	}
 	// Five in the previous comparison year at 80萬/坪, outside the map window.
 	for index := range 5 {
-		rows = append(rows, sale(lat+float64(index)*1e-5, lng, "2024-06", 24_000_000, 30, years(10), road))
+		row := sale(lat+float64(index)*1e-5, lng, "2024-06", 24_000_000, 30, years(10), road)
+		row.CommunityID = "c"
+		rows = append(rows, row)
 	}
 	// A sale in the bounding box but outside the hexagon is ignored.
 	rows = append(rows, sale(lat+0.01, lng+0.01, "2025-11", 99_000_000, 10, nil, "台北市大安區仁愛路四段1號"))
@@ -48,6 +53,9 @@ func TestCellDetail(t *testing.T) {
 	}
 	if detail.District != "大安區" || detail.CityCode != "a" || detail.Road != "敦化南路一段" {
 		t.Fatalf("unexpected place %q %q %q", detail.CityCode, detail.District, detail.Road)
+	}
+	if len(detail.Communities) != 2 || detail.Communities[0] != (domain.CommunityRef{ID: "b", Sales: 3}) || detail.Communities[1].ID != "a" {
+		t.Fatalf("unexpected communities %#v", detail.Communities)
 	}
 	want := map[string]int{"0-5": 1, "5-15": 1, "15-30": 2, "30+": 1, "unknown": 1}
 	for _, bucket := range detail.AgeMix {

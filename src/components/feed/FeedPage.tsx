@@ -16,6 +16,8 @@ interface FeedPageProps extends FiltersProps {
   api: TransactionAPI;
   query: FeedQuery;
   onShowOnMap: (transaction: TransactionData) => void;
+  /** Opens a sale's community; the online demo has no communities. */
+  onShowCommunity?: (id: string) => void;
 }
 
 interface FeedResult {
@@ -26,7 +28,7 @@ interface FeedResult {
   latestRelease: Release | null;
 }
 
-export default function FeedPage({ api, query, onShowOnMap, exportUrl, ...filters }: FeedPageProps) {
+export default function FeedPage({ api, query, onShowOnMap, onShowCommunity, exportUrl, ...filters }: FeedPageProps) {
   const { t } = useLanguage();
   const [regions, setRegions] = useState<Region[]>([]);
   const [result, setResult] = useState<FeedResult | null>(null);
@@ -145,7 +147,7 @@ export default function FeedPage({ api, query, onShowOnMap, exportUrl, ...filter
       </div>
 
       {selected && (
-        <TransactionDrawer transaction={selected} breaks={breaks} onClose={() => setSelected(null)} onShowOnMap={onShowOnMap} />
+        <TransactionDrawer transaction={selected} breaks={breaks} onClose={() => setSelected(null)} onShowOnMap={onShowOnMap} onShowCommunity={onShowCommunity} />
       )}
     </div>
   );

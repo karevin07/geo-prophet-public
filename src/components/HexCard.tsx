@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, Building, X } from "lucide-react";
 import { cellToLatLng, getResolution } from "h3-js";
 import { useLanguage } from "../lib/i18n";
 import { formatWan, priceClass, PRICE_CLASSES, type PriceBreaks } from "../lib/price-scale";
@@ -24,6 +24,8 @@ interface HexCardProps {
   fetchNearby?: FetchNearbyFacilities;
   onClose: () => void;
   onViewDistrict: (cityCode: string, district: string) => void;
+  /** Opens a community page; without it, the card does not list communities. */
+  onShowCommunity?: (id: string) => void;
 }
 
 const CLASS_LABELS = ["legend.low", "legend.midLow", "legend.mid", "legend.high"];
@@ -33,7 +35,7 @@ const AGE_COLORS: Record<CellDetail["ageMix"][number]["key"], string> = {
 // Details depend on the filters, which fetchDetail closes over, so cache per fetcher.
 const cache = new WeakMap<FetchCellDetail, Map<string, CellDetail>>();
 
-export default function HexCard({ hex, breaks, x, y, pinned, windowLabel, fetchDetail, fetchNearby, onClose, onViewDistrict }: HexCardProps) {
+export default function HexCard({ hex, breaks, x, y, pinned, windowLabel, fetchDetail, fetchNearby, onClose, onViewDistrict, onShowCommunity }: HexCardProps) {
   const { t } = useLanguage();
   const [centerLat, centerLng] = cellToLatLng(hex.hex);
   const { nearby, failed } = useNearbyFacilities(fetchNearby, centerLat, centerLng, pinned ? 0 : 300);
@@ -141,6 +143,25 @@ export default function HexCard({ hex, breaks, x, y, pinned, windowLabel, fetchD
           </>
         ) : <div className="h-2 animate-pulse rounded-full bg-slate-100" />}
       </div>
+
+      {pinned && onShowCommunity && detail?.communities && detail.communities.length > 0 && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <div className="mb-1.5 text-xs font-medium text-slate-600">{t("hex.communities")}</div>
+          <ul className="space-y-0.5">
+            {detail.communities.map((community) => (
+              <li key={community.id}>
+                <button onClick={() => onShowCommunity(community.id)}
+                  className="-mx-1.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm hover:bg-slate-50">
+                  <Building className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <span className="min-w-0 flex-1 truncate text-slate-800">{community.name || community.address}</span>
+                  <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{fill(t("hex.communitySales"), { count: community.sales ?? 0 })}</span>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-brand-600" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {fetchNearby && <FacilitySummary nearby={nearby} failed={failed} className="mt-3 border-t border-slate-100 pt-3" />}
 

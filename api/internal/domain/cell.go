@@ -14,6 +14,7 @@ type CellRow struct {
 	BuildingPrice int64
 	AreaPing      float64
 	BuildingAge   *int
+	CommunityID   string // empty without a community
 }
 
 // AgeBucket counts sales by building age at sale; Key is 0-5, 5-15, 15-30, 30+ or unknown.
@@ -38,4 +39,6 @@ type CellDetail struct {
 	PriceYoY   *float64    `json:"priceYoY"`
 	YoYThrough string      `json:"yoyThrough"`
 	AgeMix     []AgeBucket `json:"ageMix"`
+	// Communities are those with the most sales in the cell, the most first.
+	Communities []CommunityRef `json:"communities"`
 }

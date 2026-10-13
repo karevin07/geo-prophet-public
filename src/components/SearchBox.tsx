@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Building2, Calculator, Loader2, MapPin, Route, Search, TrainFront, X } from "lucide-react";
+import { Building, Building2, Calculator, Loader2, MapPin, Route, Search, TrainFront, X } from "lucide-react";
 import { useLanguage } from "../lib/i18n";
 import type { Place, TransactionAPI } from "../lib/api";
 
@@ -14,7 +14,7 @@ interface SearchBoxProps {
   onEstimate?: (place: Place) => void;
 }
 
-const icons = { district: Building2, road: Route, address: MapPin, station: TrainFront };
+const icons = { district: Building2, road: Route, address: MapPin, station: TrainFront, community: Building };
 
 export default function SearchBox({ api, onSelect, kinds, initialText = "", placeholder, onEstimate }: SearchBoxProps) {
   const { t } = useLanguage();

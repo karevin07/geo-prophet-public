@@ -2,6 +2,7 @@ import type { FacilityGroup } from "./api";
 import { IS_DEMO } from "./demo";
 import type { Basemap } from "./basemap";
 import { FACILITY_GROUPS } from "./facilities";
+import type { MapMetric } from "./rent-scale";
 
 /** How the map is drawn; a per-viewer preference kept in localStorage. */
 export interface LayerSettings {
@@ -15,20 +16,22 @@ export interface LayerSettings {
   facilityGroups: FacilityGroup[];
   /** Colour the map by prices or by facility density. */
   facilityView: "price" | "density";
+  /** Colour the map by sale prices, rents or gross yields; only prices go with the density view. */
+  metric: MapMetric;
   /** Presale projects with recent contracts. */
   presales: boolean;
 }
 
 export const DEFAULT_LAYER_SETTINGS: LayerSettings = {
-  opacity: 0.5, basemap: "color", districts: false, transit: true, facilityGroups: [], facilityView: "price", presales: false,
+  opacity: 0.5, basemap: "color", districts: false, transit: true, facilityGroups: [], facilityView: "price", metric: "price", presales: false,
 };
 
 const STORAGE_KEY = "geoprophet.layers";
 
 export function loadLayerSettings(): LayerSettings {
   const settings = readLayerSettings();
-  // The online demo's snapshot has no stations, presales or facilities to draw.
-  return IS_DEMO ? { ...settings, transit: false, presales: false, facilityGroups: [], facilityView: "price" } : settings;
+  // The online demo's snapshot has no stations, presales, facilities or leases to draw.
+  return IS_DEMO ? { ...settings, transit: false, presales: false, facilityGroups: [], facilityView: "price", metric: "price" } : settings;
 }
 
 function readLayerSettings(): LayerSettings {
@@ -41,6 +44,7 @@ function readLayerSettings(): LayerSettings {
       transit: stored.transit !== false,
       facilityGroups: Array.isArray(stored.facilityGroups) ? FACILITY_GROUPS.filter((group) => stored.facilityGroups!.includes(group)) : [],
       facilityView: stored.facilityView === "density" ? "density" : "price",
+      metric: (stored.metric === "rent" || stored.metric === "yield") && stored.facilityView !== "density" ? stored.metric : "price",
       presales: stored.presales === true,
     };
   } catch {

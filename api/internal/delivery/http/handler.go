@@ -19,26 +19,31 @@ import (
 // defaultWindowMonths is the default date window; 實價登錄 lags transactions by 1-3 months.
 const defaultWindowMonths = 12
 
+// maxSearchResults caps the search box's results, communities included.
+const maxSearchResults = 10
+
 type Handler struct {
-	service    *usecase.TransactionService
-	places     *usecase.PlaceService
-	feed       *usecase.FeedService
-	investment *usecase.InvestmentService
-	workbench  *usecase.InvestmentWorkbenchService
-	liquidity  *usecase.InvestmentLiquidityService
-	rentals    *usecase.RentalService
-	estimates  *usecase.EstimateService
-	presales   *usecase.PresaleService
-	facilities *usecase.FacilityService
-	transit    *usecase.TransitService
-	dataStatus *usecase.DataStatusService
-	admin      *usecase.AdminService
-	now        func() time.Time
+	service     *usecase.TransactionService
+	places      *usecase.PlaceService
+	feed        *usecase.FeedService
+	investment  *usecase.InvestmentService
+	workbench   *usecase.InvestmentWorkbenchService
+	liquidity   *usecase.InvestmentLiquidityService
+	rentals     *usecase.RentalService
+	estimates   *usecase.EstimateService
+	presales    *usecase.PresaleService
+	communities *usecase.CommunityService
+	facilities  *usecase.FacilityService
+	transit     *usecase.TransitService
+	dataStatus  *usecase.DataStatusService
+	admin       *usecase.AdminService
+	now         func() time.Time
 }
 
 // Services are the use cases the handlers call. Workbench, Liquidity, Rentals,
-// Estimates, Presales, Facilities, DataStatus and Admin need a database; when
-// nil, their endpoints answer 503.
+// Estimates, Presales, Communities, Facilities, DataStatus and Admin need a database;
+// when nil, their endpoints answer 503, and without Communities sales, hexagons and
+// searches carry no community links.
 type Services struct {
 	Transactions *usecase.TransactionService
 	Places       *usecase.PlaceService
@@ -49,6 +54,7 @@ type Services struct {
 	Rentals      *usecase.RentalService
 	Estimates    *usecase.EstimateService
 	Presales     *usecase.PresaleService
+	Communities  *usecase.CommunityService
 	Facilities   *usecase.FacilityService
 	Transit      *usecase.TransitService
 	DataStatus   *usecase.DataStatusService
@@ -57,7 +63,7 @@ type Services struct {
 
 func NewHandler(services Services) *Handler {
 	return &Handler{
-		service: services.Transactions, places: services.Places, feed: services.Feed, investment: services.Investment, workbench: services.Workbench, liquidity: services.Liquidity, rentals: services.Rentals, estimates: services.Estimates, presales: services.Presales, facilities: services.Facilities, transit: services.Transit,
+		service: services.Transactions, places: services.Places, feed: services.Feed, investment: services.Investment, workbench: services.Workbench, liquidity: services.Liquidity, rentals: services.Rentals, estimates: services.Estimates, presales: services.Presales, communities: services.Communities, facilities: services.Facilities, transit: services.Transit,
 		dataStatus: services.DataStatus, admin: services.Admin, now: time.Now,
 	}
 }
@@ -148,6 +154,30 @@ func (handler *Handler) RentalDistricts(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": report})
+}
+
+// RentLayer returns rents and gross yields of the H3 cells inside bbox, for the map.
+func (handler *Handler) RentLayer(c *gin.Context) {
+	if handler.rentals == nil {
+		handler.rentalsUnavailable(c)
+		return
+	}
+	filter, err := handler.parseFilter(c)
+	if err != nil {
+		handler.writeError(c, err)
+		return
+	}
+	resolution, err := integerQuery(c, "resolution", 9)
+	if err != nil {
+		handler.writeError(c, err)
+		return
+	}
+	layer, err := handler.rentals.Layer(c.Request.Context(), filter, resolution)
+	if err != nil {
+		handler.writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": layer})
 }
 
 // RentalTrend returns a city's and optionally a district's monthly rent per ping.
@@ -247,6 +277,12 @@ func (handler *Handler) EstimateBuilding(c *gin.Context) {
 	if err != nil {
 		handler.writeError(c, err)
 		return
+	}
+	if handler.communities != nil {
+		if profile.Community, err = handler.communities.ByDoor(c.Request.Context(), c.Query("address")); err != nil {
+			handler.writeError(c, err)
+			return
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"data": profile})
 }
@@ -579,6 +615,12 @@ func (handler *Handler) CellDetail(c *gin.Context) {
 		handler.writeError(c, err)
 		return
 	}
+	if handler.communities == nil {
+		detail.Communities = []domain.CommunityRef{}
+	} else if detail.Communities, err = handler.communities.Describe(c.Request.Context(), detail.Communities); err != nil {
+		handler.writeError(c, err)
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"data": detail})
 }
 
@@ -607,6 +649,18 @@ func (handler *Handler) SearchPlaces(c *gin.Context) {
 	if err != nil {
 		handler.writeError(c, err)
 		return
+	}
+	// Communities come first: a name or door number names one building better than a road.
+	if handler.communities != nil {
+		communities, err := handler.communities.Search(c.Request.Context(), c.Query("q"), places)
+		if err != nil {
+			handler.writeError(c, err)
+			return
+		}
+		places = append(communities, places...)
+		if len(places) > maxSearchResults {
+			places = places[:maxSearchResults]
+		}
 	}
 	c.JSON(http.StatusOK, collectionResponse[domain.Place]{Data: places, Meta: responseMeta{Count: len(places)}})
 }

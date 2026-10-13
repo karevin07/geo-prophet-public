@@ -14,7 +14,7 @@ func (repository *TransactionRepository) Facilities(ctx context.Context, query d
 	sql := `SELECT id, source, category, name, brand, city_code, district, address,
             ST_Y(location::geometry), ST_X(location::geometry), COALESCE(area_m2, 0)
         FROM facilities
-        WHERE location && ST_MakeEnvelope($1, $2, $3, $4, 4326)::geography AND category = ANY ($5)
+        WHERE ` + withinBounds("location", "ST_MakeEnvelope($1, $2, $3, $4, 4326)") + ` AND category = ANY ($5)
         ORDER BY id LIMIT $6`
 	bounds := query.Bounds
 	facilities := []domain.Facility{}

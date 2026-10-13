@@ -75,6 +75,13 @@ var specialRemarks = []struct {
 	{"分件登記", SpecialSplitRegistration},
 	{"政府機關標讓售", SpecialGovernmentSale},
 	{"協議價購", SpecialGovernmentSale},
+	// Homes bought from the government: 合宜住宅 and other 向政府機關承購/申購 sales, units
+	// allotted to landowners after 區段徵收 (專案配售), resettlement and military village homes.
+	{"向政府", SpecialGovernmentSale},
+	{"專案配售", SpecialGovernmentSale},
+	{"安置住宅", SpecialGovernmentSale},
+	{"眷村改建", SpecialGovernmentSale},
+	{"國防部配售", SpecialGovernmentSale},
 	{"地上權", SpecialSuperficies},
 	{"含租約", SpecialIncludesLease},
 	{"都更", SpecialRedevelopment},

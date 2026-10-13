@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, MapPin, X } from "lucide-react";
+import { Building, Check, Copy, MapPin, X } from "lucide-react";
 import { useLanguage } from "../../lib/i18n";
 import { formatWan, priceClass, PRICE_CLASSES, type PriceBreaks } from "../../lib/price-scale";
 import { fill, isoDate } from "../../lib/utils";
@@ -11,6 +11,7 @@ interface TransactionDrawerProps {
   breaks: PriceBreaks | null;
   onClose: () => void;
   onShowOnMap: (transaction: TransactionData) => void;
+  onShowCommunity?: (id: string) => void;
 }
 
 function ageYears(transaction: TransactionData) {
@@ -19,7 +20,7 @@ function ageYears(transaction: TransactionData) {
   return years >= 0 ? Math.floor(years) : null;
 }
 
-export default function TransactionDrawer({ transaction, breaks, onClose, onShowOnMap }: TransactionDrawerProps) {
+export default function TransactionDrawer({ transaction, breaks, onClose, onShowOnMap, onShowCommunity }: TransactionDrawerProps) {
   const { t, language } = useLanguage();
   const [copied, setCopied] = useState(false);
   const age = ageYears(transaction);
@@ -104,6 +105,13 @@ export default function TransactionDrawer({ transaction, breaks, onClose, onShow
             <MapPin className="h-4 w-4" />
             {t("drawer.showOnMap")}
           </button>
+          {onShowCommunity && transaction.communityId && (
+            <button onClick={() => onShowCommunity(transaction.communityId!)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-brand-200 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50">
+              <Building className="h-4 w-4" />
+              {t("community.open")}
+            </button>
+          )}
           <button
             onClick={async () => {
               try {

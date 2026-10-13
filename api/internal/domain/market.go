@@ -108,10 +108,11 @@ type SummaryWithYoY struct {
 type PlaceKind string
 
 const (
-	PlaceDistrict PlaceKind = "district"
-	PlaceRoad     PlaceKind = "road"
-	PlaceAddress  PlaceKind = "address"
-	PlaceStation  PlaceKind = "station"
+	PlaceDistrict  PlaceKind = "district"
+	PlaceRoad      PlaceKind = "road"
+	PlaceAddress   PlaceKind = "address"
+	PlaceStation   PlaceKind = "station"
+	PlaceCommunity PlaceKind = "community"
 )
 
 // Place is a search result the map can fly to.
@@ -122,6 +123,8 @@ type Place struct {
 	Lng   float64   `json:"lng"`
 	// StationID identifies a rail station (Kind PlaceStation), e.g. TRTC-BL07.
 	StationID string `json:"stationId,omitempty"`
+	// CommunityID identifies a community (Kind PlaceCommunity).
+	CommunityID string `json:"communityId,omitempty"`
 }
 
 // PlaceQuery is a parsed search: an optional district and a road, with the door number

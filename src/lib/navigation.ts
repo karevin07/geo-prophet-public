@@ -13,6 +13,8 @@ export type NavigationGroup = (typeof NAVIGATION_GROUPS)[number]["id"];
 /** The groups with the pages available here; the online demo leaves some out. */
 export const VISIBLE_NAVIGATION_GROUPS = NAVIGATION_GROUPS.map((group) => ({ id: group.id, tabs: group.tabs.filter(tabAvailable) }));
 export function navigationGroup(tab: Tab): NavigationGroup | undefined {
+  // A community page is reached from other pages rather than the menu, but belongs to 區域研究.
+  if (tab === "community") return "region";
   return NAVIGATION_GROUPS.find((group) => group.tabs.some((item) => item === tab))?.id;
 }
 export function navigationHref(tab: Tab): string {

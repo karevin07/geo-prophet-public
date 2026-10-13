@@ -7,15 +7,20 @@ import TopBar from "./TopBar";
 import ExportButton from "./ExportButton";
 
 describe("grouped navigation", () => {
+  // A community page is opened from other pages, never from the menu.
+  const menuTabs = TABS.filter((tab) => tab !== "community");
+
   it("includes every existing page exactly once", () => {
     const pages = ["map", ...NAVIGATION_GROUPS.flatMap((group) => [...group.tabs])];
-    expect([...pages].sort()).toEqual([...TABS].sort());
-    expect(new Set(pages).size).toBe(TABS.length);
+    expect([...pages].sort()).toEqual([...menuTabs].sort());
+    expect(new Set(pages).size).toBe(menuTabs.length);
     expect(NAVIGATION_GROUPS.map((group) => group.tabs.length)).toEqual([4, 3, 2]);
   });
 
   it("keeps all existing deep links and category membership", () => {
-    for (const tab of TABS) expect(parseAppState(navigationHref(tab), "").tab).toBe(tab);
+    for (const tab of menuTabs) expect(parseAppState(navigationHref(tab), "").tab).toBe(tab);
+    expect(parseAppState(navigationHref("community"), "?id=3d2801a712dc").tab).toBe("community");
+    expect(navigationGroup("community")).toBe("region");
     expect(navigationGroup("map")).toBeUndefined();
     expect(navigationGroup("feed")).toBe("market");
     expect(navigationGroup("stations")).toBe("region");

@@ -18,14 +18,14 @@ GeoProphet 使用 Gin 提供 API，預設監聽 `:8080`。Docker 部署時，瀏
 
 | 參數 | 格式與預設值 | 說明 |
 | --- | --- | --- |
-| `bbox` | `west,south,east,north` | WGS84 可視範圍；西、南必須小於東、北 |
+| `bbox` | `west,south,east,north` | WGS84 可視範圍；西、南必須小於東、北。只納入經緯度落在範圍內（含邊界）的資料 |
 | `min_price` | 非負整數，預設 `0` | 成交總價下限（新台幣） |
 | `max_price` | 非負整數，預設無上限 | 成交總價上限（新台幣） |
 | `min_area` | 非負數字，預設 `0` | 建物坪數下限，不含車位 |
 | `max_area` | 非負數字，預設無上限 | 建物坪數上限，不含車位 |
 | `types` | 逗號分隔 | `住宅大樓,華廈,公寓,透天厝,其他`；`其他` 代表前四類以外的全部 |
 | `from` | `YYYY-MM` | 成交月份起點，預設為含本月的近 12 個月 |
-| `to` | `YYYY-MM` | 成交月份終點，包含整個指定月份 |
+| `to` | `YYYY-MM` | 成交月份終點，包含整個指定月份，但最晚到今天（台灣時間）；日期晚於今天的成交是來源誤植，一律不列出 |
 | `include_special` | `true` 或 `false`，預設 `false` | 是否包含親友交易、分件登記與極端價格 |
 | `exclude_new` | `true` 或 `false`，預設 `false` | 排除屋齡未滿 2 年（成交日距竣工日）的成交；竣工日未知者保留。適合跨時間比較，避免整批建案交屋改變成交組成 |
 
@@ -61,9 +61,9 @@ POST /api/v1/admin/jobs   {"kind": "sync"}
 POST /api/v1/admin/jobs   {"kind": "seasons", "params": {"seasons": "113S1-114S4", "cities": ["a", "f"]}}
 ```
 
-`POST` 排入一筆工作並回傳 `201`；`kind` 為 `sync`（完整同步）、`current_release`（重新匯入最新一期）、`seasons`（重新匯入指定季度）、`transit`（重新匯入軌道站點）或 `backup`（立即備份）。`backup` 需要另行啟動備份服務；其餘由以 `sync -interval` 啟動的常駐 importer 在同步間隔期間每 15 秒檢查並依序執行。沒有執行者時，工作只會留在佇列中。
+`POST` 排入一筆工作並回傳 `201`；`kind` 為 `sync`（完整同步）、`current_release`（重新匯入最新一期）、`seasons`（重新匯入指定季度）、`transit`（重新匯入軌道站點）或 `backup`（立即備份）。`backup` 由備份服務、其餘由以 `sync -interval` 常駐的 importer 每 15 秒認領並依序執行；沒有執行者時，工作只會留在佇列中。
 
-`seasons` 需要 `params`：`seasons` 可為單季（`115S3`）、範圍（`113S1-114S4`）或以逗號分隔，最多 60 季；`cities` 為縣市代碼（`a`、`f`、`h`）且不可為空。本機手動匯入使用 `make import-sales SEASON=115S2 CITY=a`，也可改用 `import-rentals` 或 `import-presales`。不符時回傳 `400`。其他種類忽略 `params`。工作紀錄會帶回 `params`。同一種工作已在排隊或執行中時回傳 `409 conflict`；未知的 `kind` 回傳 `400`。
+`seasons` 需要 `params`：`seasons` 與 `make import-sales` 的 `SEASON` 格式相同（`115S3`、`113S1-114S4` 或以逗號分隔），最多 60 季；`cities` 為縣市代碼（`a`、`f`、`h`）且不可為空。不符時回傳 `400`。其他種類忽略 `params`。工作紀錄會帶回 `params`。同一種工作已在排隊或執行中時回傳 `409 conflict`；未知的 `kind` 回傳 `400`。
 
 `GET` 列出最近 50 筆工作（新到舊），含 `status`（`queued`、`running`、`succeeded`、`failed`）、`requestedBy`（觸發者的 Tailscale 帳號）、排入／開始／結束時間、`result` 與失敗時的 `error`。匯入類工作的 `result` 為執行期間的 `runs`、`failedRuns`、`rowsUpserted`；備份為 `file` 與 `bytes`。執行者重啟時，原本執行中的工作會標為失敗。
 
@@ -98,7 +98,9 @@ GET /api/v1/admin/data-status
 
 `data.coverage` 的 `missing` 只列出同一縣市**已成功匯入的最早與最新季度之間**缺少的季度。未公布的近期季度、早於最早成功季度的歷史資料，以及已從官方網站下架的十日一期都不會被推測為缺漏；空陣列不代表歷史資料完整。`rowsUpserted` 是本次寫入的筆數，包含原有交易的覆寫，**不可**解讀為新增筆數。
 
-`data.quality` 供後台「資料品質」頁使用，包含 `metrics` 與 `alerts`。`metrics` 對每個縣市的 `sales`（季資料）及 `sales_release`（十日一期）各取期別最新的一次成功匯入；欄位有 `rowsRead`、`rowsSkipped`、`rowsUpserted`、`rowsGeocodeFailed`、`preciseCount`、`locatedCount`、`preciseRate`、`locatedRate`、`previousRowsRead`、`volumeChange`、`finishedAt`。比率分母是本次寫入筆數；`precise` 指門牌或同巷弄附近門牌，`located` 另含路段與行政區中心。舊紀錄若缺定位細項，比率為 `null`；沒有前一期時比較欄位為 `null`。比較只在同縣市、同資料集的不同期別之間進行，重新匯入同一期不會當成比較基準。
+`data.quality` 供後台「資料品質」頁使用，包含 `metrics` 與 `alerts`。`metrics` 對每個縣市的 `sales`（季資料）及 `sales_release`（十日一期），各取期別最新的一次成功匯入。欄位有 `rowsRead`、`rowsSkipped`、`rowsUpserted`、`rowsGeocodeFailed`、`preciseCount`、`locatedCount`、`preciseRate`、`locatedRate`、`previousRowsRead`、`volumeChange`、`finishedAt`。
+
+比率以本次寫入筆數為分母；`precise` 指門牌或同巷弄附近門牌，`located` 另含路段與行政區中心。舊紀錄缺少定位細項時，比率為 `null`；沒有前一期時，比較欄位為 `null`。只比較同縣市、同資料集的不同期別，重新匯入同一期不會當成比較基準。
 
 `alerts` 列出目前觸發的 `code`、`severity`、`cityCode`、`dataset`、`season`、`runId`。規則為：至少寫入 100 筆且定位率低於 90%（`low_location_rate`）或精確定位率低於 70%（`low_precise_rate`）；十日一期兩期各至少讀取 100 筆且本期少於前一期 65%（`volume_drop`）；最新一期登記期間結束已超過 21 天（`stale_release`，重匯舊資料不會重設時鐘）；或最近一次嘗試失敗（`import_failed`，來源尚未發布不計）。這是操作告警，不應直接解讀為房市變化。
 
@@ -139,7 +141,7 @@ GET /api/v1/aggregations/h3?bbox=121.45,24.98,121.60,25.10&resolution=9
 | `avgArea` | 平均建物坪數，不含車位 |
 | `avgPricePerPing` | 面積加權的每坪單價，車位價與車位坪數均排除 |
 
-點位與 H3 都排除只定位到行政區中心的成交。H3 會逐筆串流所有符合篩選的成交並計算完整聚合，不再於 200,000 筆截斷；廣域、多年份查詢可能需要較長時間。
+點位與 H3 都排除只定位到行政區中心的成交。H3 逐筆串流所有符合篩選的成交，不再於 200,000 筆截斷。廣域、多年份查詢可能需要較長時間。
 
 ## H3 單格明細
 
@@ -162,7 +164,8 @@ GET /api/v1/aggregations/h3/cell?hex=894ba0a4177ffff&bbox=121.45,24.98,121.62,25
     "road": "復興南路一段",
     "priceYoY": -0.011,
     "yoyThrough": "2026-02",
-    "ageMix": [{"key":"0-5","count":7},{"key":"5-15","count":0},{"key":"15-30","count":4},{"key":"30+","count":9},{"key":"unknown","count":0}]
+    "ageMix": [{"key":"0-5","count":7},{"key":"5-15","count":0},{"key":"15-30","count":4},{"key":"30+","count":9},{"key":"unknown","count":0}],
+    "communities": [{"id":"3d2801a712dc","name":"","address":"敬業三路162巷 1–212號","sales":4}]
   }
 }
 ```
@@ -170,6 +173,7 @@ GET /api/v1/aggregations/h3/cell?hex=894ba0a4177ffff&bbox=121.45,24.98,121.62,25
 - `district`、`road` 為 cell 內成交最常見的行政區與路段；地址無法解析路段時 `road` 為空字串。
 - `priceYoY` 比較截至 `yoyThrough` 的 12 個月與前一年的面積加權單價；`yoyThrough` 為查詢結束月與最後完整登錄月份較早者，任一期少於 5 筆時為 `null`。
 - `ageMix` 依成交時屋齡分為 `0-5`、`5-15`、`15-30`、`30+` 年與 `unknown`（無完工日，多為預售）。
+- `communities` 為 cell 內當期成交最多的 3 個[社區](#社區大樓)，`sales` 為各自的成交筆數；沒有資料庫時為空陣列。
 - 無效或解析度不在 7–10 的 `hex` 回傳 `400 invalid_request`。
 
 ## 行情趨勢
@@ -325,7 +329,11 @@ GET /api/v1/investment/workbench?city=a&type=住宅大樓&min_area=15&max_area=4
 }
 ```
 
-上例僅示意格式，**不是實際行情**。成交只計住家用房地、非特殊交易；租金只計住家用整戶新簽租約，排除續租、特殊租約及社會住宅。兩者都依同縣市、屋型、坪數與屋齡篩選；坪數與屋齡含下限、不含上限。成交本期至少 30 筆才顯示中位單價，前後兩期各至少 30 筆才顯示變化率；租約至少 20 筆才顯示租金中位數。`grossYield = medianRentPerPing × 12 / medianPricePerPing`，任一中位數不足樣本則為 `null`。它是**不同房屋的行政區中位數之比**，不是任何個案的租金報酬率，也沒有扣稅、空置、費用或融資。租賃登錄不涵蓋所有自行出租案件，樣本不可視為整個租屋市場。成交筆數不等於去化天數，歷史價格變化不是預測。前端另有自行輸入成本的情境試算，未經 API 計算或保存。
+上例僅示意格式，**不是實際行情**。成交只計住家用房地、非特殊交易；租金只計住家用整戶新簽租約，排除續租、特殊租約及社會住宅。兩者都按同縣市、屋型、坪數與屋齡篩選，坪數與屋齡含下限、不含上限。
+
+成交本期至少 30 筆才顯示中位單價，前後兩期各至少 30 筆才顯示變化率；租約至少 20 筆才顯示租金中位數。`grossYield = medianRentPerPing × 12 / medianPricePerPing`，任一中位數不足樣本則為 `null`。
+
+這是**不同房屋的行政區中位數之比**，不是個案租金報酬率，也沒有扣除稅、空置、費用或融資。租賃登錄不涵蓋所有自行出租案件，不能視為整個租屋市場；成交筆數不等於去化天數，歷史價格變化也不是預測。前端另有自行輸入成本的情境試算，不由 API 計算或保存。
 
 ### 區域流動性研究
 
@@ -396,6 +404,21 @@ GET /api/v1/rentals/trend?city=a&district=中山區&type=&min_area=&max_area=&in
 
 不含社宅（預設）時走勢從 **2023-12** 起：112S4 以前沒有「租賃住宅服務」欄位，社宅只能從備註辨識（新北約 43%，之後約 78%），沒被標出的社宅會讓「不含社宅」的租金在格式變更時假性跳升約 20%。`include_social=true` 時不受此限。
 
+### 地圖租金圖層
+
+```http
+GET /api/v1/rentals/h3?bbox=121.50,25.02,121.56,25.06&resolution=9&types=住宅大樓,華廈&min_area=0&max_area=200
+```
+
+地圖「租金」與「毛報酬率」顯示用。`bbox` 必填，`resolution` 為 7–10（預設 9）；沿用[共用篩選參數](#共用篩選參數)的 `types`、`min_area`／`max_area` 與 `exclude_new`，`其他` 型態不計入，總價、`from`／`to` 與 `include_special` 不適用。
+
+- **期間**：所有縣市租約與成交都已完整登錄的最後一個月為 `through`。租約取近 36 個月（`from` 起），成交取近 12 個月（`salesFrom` 起）。
+- **租約**：只計定位到門牌的整戶新簽租約，排除續租、特殊租約與社宅。每筆依所在縣市的租金指數（全市 3 個月滾動中位數，至少 30 筆）調整到 `through`：租金 × 指數(`through`) ÷ 指數(簽約月)，任一月份樣本不足時不調整。指數會快取 10 分鐘。
+- **每格**：至少 `minimumSample`（5）筆租約才列出，含調整後的每坪月租與月租中位數 `medianRentPerPing`／`medianMonthlyRent`、坪數中位數、最常見房數 `mainRooms`（不含 0 房）與各建物型態占比 `categories`。
+- **毛報酬率**：同格近 12 個月同條件住宅成交（房地、非特殊交易、定位到門牌）也有 5 筆以上時，`medianPricePerPing` 為其單價中位數，`grossYield` = `medianRentPerPing` × 12 ÷ `medianPricePerPing`；否則兩者為 `null`。
+
+租約比成交稀疏，36 個月的租約在台北約可填滿 548 格（resolution 9），與 12 個月成交的 597 格相近。毛報酬率比較的是同一格內不同物件的中位數，不是個案報酬；未扣管理費、空置、稅費與修繕。沒有資料庫時回傳 `503 not_available`。
+
 ### 車站周邊租金
 
 ```http
@@ -424,6 +447,35 @@ GET /api/v1/presales/project?key=a|文山區|元利四季莊園
 `/presales/project` 另含 `lowPricePerPing`／`highPricePerPing`（有效交易單價的第 10／90 百分位）、`mainRooms`（最常見的房數）、`months`（每月有效交易數與單價中位數）、`floors`（各樓層單價中位數）、`units`（全部交易，含棟及號、樓層、總價、車位價、解約與特殊原因，最多 3,000 筆）與 `resale`：以建案最後 12 個月簽約的單價中位數，比較 1 公里內近 12 個完整月份的中古屋成交（全部屋齡，與 5 年內新成屋），各需至少 10 筆，`premium`／`newPremium` 為建案單價相對中古屋的溢價。建案只定位到行政區時 `resale` 為 `null`；只定位到路段時位置可能偏離數百公尺，請一併參考 `geocodePrecision`。未知的 `key` 回傳 `404`。
 
 `transactedOn` 為簽約日。110S3（2021 年 7 月）以前，預售屋在代銷合約結束後才整批登錄，常延遲數年，舊建案的月份分布反映簽約時間，但當時的資料在簽約後很久才公開。
+
+## 社區大樓
+
+```http
+GET /api/v1/communities/3d2801a712dc
+GET /api/v1/communities?city=a&district=中山區
+```
+
+實價登錄的中古屋成交沒有社區名稱，社區由成交推算：同一縣市、同一路段（含巷弄）、同一完工日的住宅大樓、華廈與公寓門牌合為一個社區。地址先去除空白與行政區後的里鄰，`121-1號` 視為 `121之1號`；沒有門牌或完工日的成交不屬於任何社區。`id` 是這三項的雜湊（12 位十六進位），重新匯入不變。需要資料庫（否則 `503`）。
+
+每個社區的 `name` 是同址或同路段的預售建案名稱：建案首次簽約後 6 年內完工、在其門牌或同一路段 400 公尺內，且建案與社區互為最佳配對（共用門牌優先，其次同路段、距離最近、完工時間最接近首次簽約後 3 年）。建案名稱約 108 年起才登錄，較舊的社區與配對不到的社區 `name` 為空字串。`address` 一律以門牌範圍描述，例如 `敬業三路162巷 1–212號`。
+
+`/communities/{id}` 回傳：
+
+- `community`：名稱、門牌範圍、行政區、門牌數、最常見的建物型態、完工日、最高樓層、累計成交、最後成交日與位置（門牌定位成交的中心，沒有時為 `null`）。
+- `from`–`through`：最後完整登錄月份往前 12 個月。`recentSales`、`medianPricePerPing` 只計一般買賣（房地交易、非特殊交易），少於 3 筆時中位數為 `null`；`priceYoY` 比較前一年同期，兩期各需 5 筆。
+- `districtPricePerPing`：同行政區、同建物型態同期的中位單價；`premium` 為社區相對它的溢價。
+- `medianAreaPing`、`mainRooms`、`mainRoomsShare`：近 5 年一般買賣的坪數中位數、最常見房數與其占比。
+- `years`：每年一般買賣中位單價，與同行政區同型態的 `districtMedianPricePerPing`；跨過最後完整登錄月份的年份 `provisional` 為 `true`。
+- `floorPremium`：近 5 年二樓以上成交，以單價除以當年中位數後的對數，對樓層做迴歸，換算每高一層的單價變化；需 3 個樓層、10 筆以上，否則為 `null`。
+- `rent`：近 36 個月整戶、非續約、非特殊、非社會住宅租約的筆數與租金中位數（3 筆以上），`grossYield` 為租金中位數 ×12 除以同期一般買賣中位單價。
+- `nearby`：500 公尺內、同建物型態、完工日相差 5 年內、同期至少 3 筆一般買賣的社區，最多 6 個，由近到遠，`difference` 為其中位單價相對本社區的差距。
+- `sales`：所有成交（含特殊交易與車位、土地，但不含日期晚於今天的誤植），由新到舊，最多 3,000 筆。
+
+未知的 `id` 回傳 `404`。
+
+`/communities?city=&district=` 列出該行政區近 12 個完整月份一般買賣最多的 20 個社區，含 `recentSales` 與 `medianPricePerPing`；缺少 `district` 或縣市不支援時回傳 `400`。
+
+成交（`/transactions`、`/feed`、社區的 `sales`）有社區時帶 `communityId`；[地點搜尋](#地點搜尋)與[估價的門牌資料](#單一地址估價)也會帶出社區。
 
 ## 生活機能設施
 
@@ -467,7 +519,7 @@ GET /api/v1/estimate/building?address=台北市大安區仁愛路四段27巷3號
 3. 權重為距離（每 300 公尺）、坪數（對數比每 0.3）、成交時間（每 18 個月）、屋齡（每 8 年）各自的指數衰減相乘，同棟成交再乘 10；估價取加權中位數，`spread` 為加權四分位距除以估價。
 4. 可比成交少於 5 筆時 `sufficient` 為 `false`，價格欄位為 `null`。
 
-`confidence`：同棟至少 3 筆且 `spread` < 0.15 為 `high`；可比成交至少 20 筆且 `spread` < 0.25 為 `medium`；其餘為 `low`。`rangeLow`／`rangeHigh` 與 `backtestMedianError` 使用開發版本記錄的歷史回測校準值，不會依使用者匯入的資料重新回測。
+`confidence`：同棟至少 3 筆且 `spread` < 0.15 為 `high`；可比成交至少 20 筆且 `spread` < 0.25 為 `medium`；其餘為 `low`。`rangeLow`／`rangeHigh` 與 `backtestMedianError` 來自 2026 年 1–6 月 3,000 筆成交的回測（每筆只用之前的成交估價）：
 
 以下成交與租金數字沿用開發版本的回測紀錄。本公開 repo 沒有附上當時的資料快照與重現腳本，因此無法在這裡獨立驗證，也不代表合成 Demo 或其他地區、期間的準確度。成交紀錄使用 2026 年 1–6 月 3,000 筆成交，每筆只用之前的成交估價：
 
@@ -493,7 +545,7 @@ GET /api/v1/estimate/building?address=台北市大安區仁愛路四段27巷3號
 
 整體誤差中位數 9.8%（大樓 8.4%、華廈 11.2%、公寓 15.7%），3 公里內同類租金中位數為 17.8%。另外測試過以到車站、公園、嫌惡設施的距離與周邊超商數調整房價或作為權重，回測誤差都沒有改善（7.32% → 7.35–7.55%），因此估價不使用生活機能，只在頁面上列出。
 
-`/estimate/building` 回傳門牌 150 公尺內、地址以該門牌開頭的成交筆數、最常見的建物型態與完工年份、最高總樓層與最近成交日，供表單自動帶入；地址沒有「號」時回傳 `400`。
+`/estimate/building` 回傳門牌 150 公尺內、地址以該門牌開頭的成交筆數、最常見的建物型態與完工年份、最高總樓層與最近成交日，供表單自動帶入，`community` 為該門牌所屬的[社區](#社區大樓)（改建過的門牌取最新完工者，沒有時為 `null`）；地址沒有「號」時回傳 `400`。
 
 **解讀限制**：資料不含裝潢、屋況、景觀、座向與增建；估價是參考行情，不是不動產估價師的鑑價。
 
@@ -627,7 +679,9 @@ GET /api/v1/transit/openings?radius=500
 - `status`：`ok`；`too_recent`（通車後一年尚未完整登錄）；`insufficient`（任一期任一方少於 10 筆），後兩者 `relative` 為 `null`。
 - `series`：通車前 36 個月至後 36 個月（不超過最後完整登錄月份）的每月車站與基準單價、筆數，`offset` 為距通車月份的月數。
 
-套用建物型態、價格、面積、特殊交易與 `exclude_new` 篩選，忽略 `bbox`、`from`、`to`。車站頁預設帶 `exclude_new=true`：例如機場捷運體育大學站通車前一年 500 公尺內的 1,729 筆成交中有 1,728 筆是新成屋，未排除時會得到 +35 個百分點這類反映建案交屋而非房價的結果。結果只隨匯入改變，API 會快取 10 分鐘。這是觀察比較，不代表因果：通車前的預期可能已反映在房價，車站周邊的成交組成也可能改變。
+套用建物型態、價格、面積、特殊交易與 `exclude_new` 篩選，忽略 `bbox`、`from`、`to`。車站頁預設帶 `exclude_new=true`。例如機場捷運體育大學站通車前一年 500 公尺內的 1,729 筆成交，有 1,728 筆是新成屋；未排除時會得到 +35 個百分點這類反映建案交屋而非房價的結果。
+
+結果只隨匯入改變，API 會快取 10 分鐘。這是觀察比較，不代表因果：通車前的預期可能已反映在房價，車站周邊的成交組成也可能改變。
 
 ## 地點搜尋
 
@@ -639,7 +693,9 @@ GET /api/v1/places?q=台北市大安區敦化南路一段100號
 | --- | --- | --- |
 | `q` | 是 | 正規化並移除空白後至少 2 個 Unicode 字元 |
 
-搜尋會正規化臺／台、全形數字等台灣地址文字，可查詢行政區、道路或完整門牌。目前搜尋範圍為已支援門牌資料的台北市、新北市與桃園市，最多回傳 8 筆；完整門牌命中時會優先於道路結果。PostgreSQL 模式的結果取自 `address_points`，因此首次門牌資料匯入完成前可能回傳空集合。
+搜尋會正規化臺／台、全形數字等台灣地址文字，可查行政區、道路或完整門牌。目前支援台北市、新北市與桃園市的門牌資料，最多回傳 8 筆，完整門牌優先於道路結果。PostgreSQL 模式從 `address_points` 取資料，首次門牌匯入完成前可能回傳空集合。
+
+有資料庫時，名稱符合的[社區](#社區大樓)（最多 3 個）與完整門牌所屬的社區排在最前面，`kind` 為 `community` 並帶 `communityId`，總數最多 10 筆。沒有位置的社區不列出。
 
 ```json
 {
@@ -657,7 +713,7 @@ GET /api/v1/places?q=台北市大安區敦化南路一段100號
 }
 ```
 
-`kind` 可能是 `district`、`road` 或 `address`。查詢不足 2 字時回傳 `400 invalid_request`。
+`kind` 可能是 `community`、`station`、`district`、`road` 或 `address`。查詢不足 2 字時回傳 `400 invalid_request`。
 
 ## 交易動態
 
@@ -788,13 +844,17 @@ GET /api/v1/regions
 ## cURL 範例
 
 ```bash
-curl --get --data-urlencode 'types=住宅大樓' --data-urlencode 'limit=10' 'http://localhost:3100/api/v1/transactions'
-curl 'http://localhost:3100/api/v1/aggregations/h3?resolution=9'
-curl 'http://localhost:3100/api/v1/trends?from=2025-10&to=2026-09'
-curl --get --data-urlencode 'types=公寓' --data-urlencode 'from=2026-01' --data-urlencode 'to=2026-09' 'http://localhost:3100/api/v1/summary'
-curl --get --data-urlencode 'q=台北市大安區敦化南路一段100號' 'http://localhost:3100/api/v1/places'
-curl --get --data-urlencode 'district=大安區' 'http://localhost:3100/api/v1/feed?city=a&sort=date_desc'
-curl --get --data-urlencode 'district=大安區' --output transactions.csv 'http://localhost:3100/api/v1/export.csv?city=a'
-curl 'http://localhost:3100/api/v1/regions'
-curl 'http://localhost:3100/readyz'
+API=http://localhost:3100
+```
+
+```bash
+curl --get --data-urlencode 'types=住宅大樓' --data-urlencode 'limit=10' "$API/api/v1/transactions"
+curl "$API/api/v1/aggregations/h3?resolution=9"
+curl "$API/api/v1/trends?from=2025-10&to=2026-09"
+curl --get --data-urlencode 'types=公寓' --data-urlencode 'from=2026-01' --data-urlencode 'to=2026-09' "$API/api/v1/summary"
+curl --get --data-urlencode 'q=台北市大安區敦化南路一段100號' "$API/api/v1/places"
+curl --get --data-urlencode 'district=大安區' "$API/api/v1/feed?city=a&sort=date_desc"
+curl --get --data-urlencode 'district=大安區' --output transactions.csv "$API/api/v1/export.csv?city=a"
+curl "$API/api/v1/regions"
+curl "$API/readyz"
 ```

@@ -7,12 +7,14 @@ import { cellToBoundary, cellToLatLng } from "h3-js";
 import { Layers, Minus, Plus } from "lucide-react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { applyLocalNames, BASEMAPS } from "../lib/basemap";
-import { buildingCategory, type BBox, type DistrictBoundaries, type Facility, type FacilityCell, type FacilityGroup, type FacilityList, type H3Aggregate, type PresaleProject, type StationRadius, type TransactionData, type TransitLines, type TransitStation } from "../lib/api";
+import { buildingCategory, type BBox, type DistrictBoundaries, type Facility, type FacilityCell, type FacilityGroup, type FacilityList, type H3Aggregate, type PresaleProject, type RentCell, type RentLayer, type StationRadius, type TransactionData, type TransitLines, type TransitStation } from "../lib/api";
 import { categoriesOf, DENSITY_CLASSES, densityClass, GROUP_COLORS, groupOf, POSITIVE_CATEGORY_COUNT, rgb } from "../lib/facilities";
 import type { FetchNearbyFacilities } from "./FacilitySummary";
 import { labelPoint } from "../lib/district-geo";
 import type { LayerSettings } from "../lib/layer-settings";
 import HexCard, { type FetchCellDetail } from "./HexCard";
+import RentHexCard from "./RentHexCard";
+import { rentValue, type MapMetric } from "../lib/rent-scale";
 import StationCard, { type FetchNearbyProjects, type FetchStationRent, type FetchStationTrend } from "./StationCard";
 import YoYBadge from "./YoYBadge";
 import { yoyColor } from "../lib/transit";
@@ -45,6 +47,12 @@ interface MapViewProps {
   districtBoundaries: DistrictBoundaries | null;
   fetchCellDetail: FetchCellDetail;
   onViewDistrict: (cityCode: string, district: string) => void;
+  /** Rents and yields by cell, drawn instead of prices when rentMetric is set. */
+  rentLayer: RentLayer | null;
+  rentMetric: Exclude<MapMetric, "price"> | null;
+  rentBreaks: PriceBreaks | null;
+  /** Opens the rents page on a district. */
+  onViewRents: (cityCode: string, district: string) => void;
   windowLabel: string;
   /** Rail routes and stations, when the transit overlay is on. */
   transitLines: TransitLines | null;
@@ -55,6 +63,8 @@ interface MapViewProps {
   fetchStationRent: FetchStationRent;
   fetchNearbyProjects: FetchNearbyProjects;
   onShowProject: (project: { key: string; cityCode: string }) => void;
+  /** Opens a community page from a sale or a hexagon; without it, communities are not linked. */
+  onShowCommunity?: (id: string) => void;
   fetchFacilities: (bbox: BBox, categories: string[], signal: AbortSignal) => Promise<FacilityList>;
   fetchFacilityDensity: (bbox: BBox, resolution: 8 | 9, categories: string[], signal: AbortSignal) => Promise<FacilityCell[]>;
   fetchNearbyFacilities: FetchNearbyFacilities;
@@ -114,6 +124,8 @@ export default function MapView(props: MapViewProps) {
   // A clicked hexagon keeps its card open; its screen position follows the camera.
   const [pinned, setPinned] = useState<H3Aggregate | null>(null);
   const [pinnedPoint, setPinnedPoint] = useState<{ x: number; y: number } | null>(null);
+  const [pinnedRent, setPinnedRent] = useState<RentCell | null>(null);
+  const [hoverRent, setHoverRent] = useState<{ cell: RentCell; x: number; y: number } | null>(null);
   const [selectedStation, setSelectedStation] = useState<TransitStation | null>(null);
   const [stationRadius, setStationRadius] = useState<StationRadius>(500);
   const [hoverStation, setHoverStation] = useState<{ station: TransitStation; x: number; y: number } | null>(null);
@@ -184,16 +196,17 @@ export default function MapView(props: MapViewProps) {
     mapRef.current?.setStyle(BASEMAPS[layerSettings.basemap]);
   }, [layerSettings.basemap]);
 
+  const pinnedHex = pinned?.hex ?? pinnedRent?.hex ?? null;
   useEffect(() => {
     const map = mapRef.current;
-    if (!pinned || !map) {
+    if (!pinnedHex || !map) {
       setPinnedPoint(null);
       return;
     }
-    const [lat, lng] = cellToLatLng(pinned.hex);
+    const [lat, lng] = cellToLatLng(pinnedHex);
     const point = map.project([lng, lat]);
     setPinnedPoint({ x: point.x, y: point.y });
-  }, [pinned, cameraTick]);
+  }, [pinnedHex, cameraTick]);
 
   // Unpin when the grid changes shape or the pinned cell leaves the data.
   useEffect(() => {
@@ -204,6 +217,7 @@ export default function MapView(props: MapViewProps) {
     const unpin = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setPinned(null);
+      setPinnedRent(null);
       setSelectedStation(null);
     };
     window.addEventListener("keydown", unpin);
@@ -309,6 +323,8 @@ export default function MapView(props: MapViewProps) {
   }, [showPresales, viewBox, fetchPresaleProjects]);
   const onShowProjectRef = useRef(props.onShowProject);
   onShowProjectRef.current = props.onShowProject;
+  const onShowCommunityRef = useRef(props.onShowCommunity);
+  onShowCommunityRef.current = props.onShowCommunity;
   const presaleLayers = useMemo(() => {
     const located = presaleProjects.filter((project): project is PresaleProject & { lat: number; lng: number } => project.lat !== null && project.lng !== null);
     if (located.length === 0) return [];
@@ -546,6 +562,49 @@ export default function MapView(props: MapViewProps) {
   }, [layerSettings.transit, transitLines, stations, stationYoY, yoyKey, selectedStation, stationRadius, zoom]);
 
   const fillAlpha = Math.round(layerSettings.opacity * 255);
+  const { rentLayer, rentMetric, rentBreaks } = props;
+  const showRent = rentMetric !== null && !showDensity;
+  // Cells without the value shown (a yield needs sales too) are left out.
+  const rentCells = useMemo(
+    () => rentLayer && rentMetric ? rentLayer.cells.filter((cell) => rentValue(cell, rentMetric) !== null) : [],
+    [rentLayer, rentMetric],
+  );
+  // Keep a pinned rent cell while it is still drawn, with its new figures.
+  useEffect(() => {
+    setPinnedRent((current) => current && showRent && rentCells.find((cell) => cell.hex === current.hex) || null);
+  }, [rentCells, showRent]);
+  const rentLayers = useMemo(() => {
+    if (!showRent || !rentMetric) return [];
+    return [
+      new PolygonLayer<RentCell>({
+        id: "rent-hexagons",
+        data: rentCells,
+        pickable: true,
+        filled: true,
+        stroked: true,
+        getPolygon: (cell) => cellToBoundary(cell.hex, true),
+        getFillColor: (cell) => priceColor(rentValue(cell, rentMetric)!, rentBreaks, fillAlpha),
+        getLineColor: [255, 255, 255, 180],
+        lineWidthMinPixels: 1,
+        autoHighlight: true,
+        highlightColor: [31, 111, 120, 90],
+        onHover: (info) => setHoverRent(info.object ? { cell: info.object, x: info.x, y: info.y } : null),
+        onClick: (info) => {
+          if (info.object) setPinnedRent((current) => current?.hex === info.object!.hex ? null : info.object!);
+        },
+        updateTriggers: { getFillColor: [rentBreaks, fillAlpha, rentMetric] },
+      }),
+      pinnedRent && new PolygonLayer<RentCell>({
+        id: "pinned-rent-hexagon",
+        data: [pinnedRent],
+        filled: false,
+        stroked: true,
+        getPolygon: (cell) => cellToBoundary(cell.hex, true),
+        getLineColor: [31, 111, 120, 255],
+        lineWidthMinPixels: 2.5,
+      }),
+    ].filter(Boolean);
+  }, [showRent, rentMetric, rentCells, rentBreaks, fillAlpha, pinnedRent]);
   const layers = useMemo(() => {
     const dataLayer = viewMode === "hex"
       ? new PolygonLayer<H3Aggregate>({
@@ -582,6 +641,9 @@ export default function MapView(props: MapViewProps) {
           autoHighlight: true,
           highlightColor: [31, 111, 120, 160],
           onHover: (info) => setHover(info.object ? { ...info, kind: "point" } : null),
+          onClick: (info) => {
+            if (info.object?.communityId) onShowCommunityRef.current?.(info.object.communityId);
+          },
           updateTriggers: { getFillColor: [breaks, fillAlpha] },
         });
     const pinnedLayer = pinned && new PolygonLayer<H3Aggregate>({
@@ -616,20 +678,21 @@ export default function MapView(props: MapViewProps) {
         fontSettings: { sdf: true },
       }),
     ] : [];
-    // The density view replaces the price layer; facilities sit above everything.
-    const base = showDensity ? densityLayers : [dataLayer];
-    return [...base, ...districtLayers, showDensity ? null : pinnedLayer, ...transitLayers, ...facilityLayers, ...presaleLayers].filter(Boolean);
-  }, [data, hexData, breaks, viewMode, fillAlpha, pinned, layerSettings.districts, districtBoundaries, transitLayers, densityLayers, facilityLayers, presaleLayers, showDensity]);
+    // The density and rent views replace the price layer; facilities sit above everything.
+    const base = showDensity ? densityLayers : showRent ? rentLayers : [dataLayer];
+    return [...base, ...districtLayers, showDensity || showRent ? null : pinnedLayer, ...transitLayers, ...facilityLayers, ...presaleLayers].filter(Boolean);
+  }, [data, hexData, breaks, viewMode, fillAlpha, pinned, layerSettings.districts, districtBoundaries, transitLayers, densityLayers, rentLayers, facilityLayers, presaleLayers, showDensity, showRent]);
 
-  // The price card has nothing to show over the density layer.
+  // The price card has nothing to show over the density or rent layers.
   useEffect(() => {
-    if (showDensity) setPinned(null);
-  }, [showDensity]);
+    if (showDensity || showRent) setPinned(null);
+  }, [showDensity, showRent]);
 
   useEffect(() => {
     overlayRef.current?.setProps({ layers });
     // The hovered object may no longer be drawn (new data, view mode or colour classes).
     setHover(null);
+    setHoverRent(null);
   }, [layers]);
 
   return (
@@ -650,7 +713,8 @@ export default function MapView(props: MapViewProps) {
             <MapButton label={t("map.layers")} onClick={() => setLayersOpen((open) => !open)} active={layersOpen}><Layers className="h-4 w-4" /></MapButton>
           </div>
           {layersOpen && <LayersPanel settings={layerSettings} onChange={props.onLayerSettingsChange} onClose={() => setLayersOpen(false)} facilityCounts={facilityCounts}
-            presaleCount={showPresales ? presaleProjects.filter((project) => project.lat !== null).length : null} />}
+            presaleCount={showPresales ? presaleProjects.filter((project) => project.lat !== null).length : null}
+            rentThrough={rentLayer?.through || null} />}
         </div>
       </div>
 
@@ -681,10 +745,24 @@ export default function MapView(props: MapViewProps) {
         <HexCard
           hex={pinned} breaks={breaks} x={pinnedPoint.x} y={pinnedPoint.y} pinned
           windowLabel={props.windowLabel} fetchDetail={props.fetchCellDetail} fetchNearby={props.fetchNearbyFacilities}
-          onClose={() => setPinned(null)} onViewDistrict={props.onViewDistrict}
+          onClose={() => setPinned(null)} onViewDistrict={props.onViewDistrict} onShowCommunity={props.onShowCommunity}
         />
       )}
-      {hover?.object && hover.kind === "hex" && !pinned && !showDensity && (
+      {showRent && rentMetric && rentLayer && pinnedRent && pinnedPoint && (
+        <RentHexCard
+          cell={pinnedRent} metric={rentMetric} breaks={rentBreaks} through={rentLayer.through} minimumSample={rentLayer.minimumSample}
+          x={pinnedPoint.x} y={pinnedPoint.y} pinned fetchDetail={props.fetchCellDetail}
+          onClose={() => setPinnedRent(null)} onViewRents={props.onViewRents}
+        />
+      )}
+      {showRent && rentMetric && rentLayer && hoverRent && !pinnedRent && (
+        <RentHexCard
+          cell={hoverRent.cell} metric={rentMetric} breaks={rentBreaks} through={rentLayer.through} minimumSample={rentLayer.minimumSample}
+          x={hoverRent.x} y={hoverRent.y} pinned={false} fetchDetail={props.fetchCellDetail}
+          onClose={() => setHoverRent(null)} onViewRents={props.onViewRents}
+        />
+      )}
+      {hover?.object && hover.kind === "hex" && !pinned && !showDensity && !showRent && (
         <HexCard
           hex={hover.object as H3Aggregate} breaks={breaks} x={hover.x} y={hover.y} pinned={false}
           windowLabel={props.windowLabel} fetchDetail={props.fetchCellDetail} fetchNearby={props.fetchNearbyFacilities}
@@ -735,8 +813,8 @@ export default function MapView(props: MapViewProps) {
           <p className="mt-1.5 text-[10px] text-slate-400">{t("facilities.cellNote")}</p>
         </div>
       )}
-      {hover?.object && hover.kind === "point" && !showDensity && (
-        <HoverCard hover={hover} breaks={breaks} isZh={language === "zh"} t={t} />
+      {hover?.object && hover.kind === "point" && !showDensity && !showRent && (
+        <HoverCard hover={hover} breaks={breaks} isZh={language === "zh"} t={t} linksCommunities={Boolean(props.onShowCommunity)} />
       )}
     </div>
   );
@@ -755,10 +833,11 @@ function MapButton({ label, onClick, active, children }: { label: string; onClic
   );
 }
 
-function HoverCard({ hover, breaks, isZh, t }: { hover: Hover; breaks: PriceBreaks | null; isZh: boolean; t: (key: string) => string }) {
+function HoverCard({ hover, breaks, isZh, t, linksCommunities }: { hover: Hover; breaks: PriceBreaks | null; isZh: boolean; t: (key: string) => string; linksCommunities: boolean }) {
   const rows: [string, ReactNode][] = [];
   let title: string;
   let subtitle: string | null = null;
+  let footer: string | null = null;
   let pricePerPing: number;
 
   if (hover.kind === "hex") {
@@ -787,6 +866,7 @@ function HoverCard({ hover, breaks, isZh, t }: { hover: Hover; breaks: PriceBrea
       [t("map.type"), t(`type.${buildingCategory(sale.buildingType)}`)],
       [t("map.floor"), `${sale.floorLabel || "-"}${sale.totalFloors ? ` / ${sale.totalFloors}` : ""}`],
     );
+    if (linksCommunities && sale.communityId) footer = t("map.pointCommunity");
   }
 
   // Keep the card inside the viewport by flipping it to the cursor's other side.
@@ -819,6 +899,7 @@ function HoverCard({ hover, breaks, isZh, t }: { hover: Hover; breaks: PriceBrea
           </div>
         ))}
       </dl>
+      {footer && <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-brand-700">{footer}</p>}
     </div>
   );
 }

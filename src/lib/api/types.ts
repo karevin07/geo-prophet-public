@@ -28,6 +28,8 @@ export interface TransactionData {
   geocodePrecision: "address" | "nearby" | "road" | "district";
   /** First published in the latest 10-day release. */
   isNew?: boolean;
+  /** The community of a 住宅大樓, 華廈 or 公寓 sale with a door number and completion date. */
+  communityId?: string;
 }
 
 export interface H3Aggregate {
@@ -179,6 +181,35 @@ export interface RentalReport {
   districts: RentalDistrict[];
 }
 
+/** One H3 cell of the map's rent layer; rents are adjusted to the layer's last month. */
+export interface RentCell {
+  hex: string;
+  lat: number;
+  lng: number;
+  rentals: number;
+  medianRentPerPing: number;
+  medianMonthlyRent: number;
+  medianAreaPing: number;
+  /** The most common number of rooms, without studios. */
+  mainRooms: number | null;
+  /** Shares of the cell's leases by building type, largest first. */
+  categories: { category: BuildingType; share: number }[];
+  sales: number;
+  medianPricePerPing: number | null;
+  /** Rent per ping × 12 over the price per ping; null below the sample minimum of sales. */
+  grossYield: number | null;
+}
+
+/** New whole-home leases of three years and sales of one, by H3 cell; months are YYYY-MM. */
+export interface RentLayer {
+  from: string;
+  salesFrom: string;
+  /** Empty without imported leases. */
+  through: string;
+  minimumSample: number;
+  cells: RentCell[];
+}
+
 /** Median rent per ping of the leases of a month and the two before it. */
 export interface RentPoint {
   month: string;
@@ -328,6 +359,8 @@ export interface BuildingProfile {
   completedYear: number | null;
   totalFloors: number | null;
   lastSale: string;
+  /** The community at the door number, if any. */
+  community: CommunityRef | null;
 }
 
 export type FacilityGroup = "daily" | "education" | "medical" | "leisure" | "nuisance";
@@ -464,6 +497,92 @@ export interface PresaleProjectDetail {
   resale: ResaleComparison | null;
 }
 
+/**
+ * Residential buildings completed together: the door numbers on one road, lane or alley
+ * whose 住宅大樓, 華廈 or 公寓 sales share a completion date. name is the presale project it
+ * was sold as, or empty; address describes its door numbers, e.g. 敬業三路162巷 1–212號.
+ */
+export interface Community {
+  id: string;
+  name: string;
+  address: string;
+  cityCode: string;
+  district: string;
+  doorNumbers: number;
+  category: string;
+  /** YYYY-MM-DD */
+  completedOn: string;
+  totalFloors: number | null;
+  sales: number;
+  lastSale: string;
+  lat: number | null;
+  lng: number | null;
+}
+
+/** A link to a community; sales counts the sales behind it, such as those in a hexagon. */
+export interface CommunityRef {
+  id: string;
+  name: string;
+  address: string;
+  sales?: number;
+}
+
+export interface CommunityYear {
+  year: number;
+  sales: number;
+  medianPricePerPing: number;
+  /** The district's median for the same building category. */
+  districtMedianPricePerPing: number | null;
+  /** The year runs past the last fully registered month. */
+  provisional: boolean;
+}
+
+export interface NearbyCommunity extends Community {
+  distanceM: number;
+  recentSales: number;
+  medianPricePerPing: number | null;
+  /** Its median over the open community's, minus one. */
+  difference: number | null;
+}
+
+/** A community's figures. Recent ones cover market sales from from to through, the last complete month. */
+export interface CommunityDetail {
+  community: Community;
+  from: string;
+  through: string;
+  recentSales: number;
+  /** Null with fewer than 3 recent sales; priceYoY needs 5 in each year. */
+  medianPricePerPing: number | null;
+  priceYoY: number | null;
+  districtPricePerPing: number | null;
+  premium: number | null;
+  /** Over five years. */
+  medianAreaPing: number | null;
+  mainRooms: number | null;
+  mainRoomsShare: number | null;
+  years: CommunityYear[];
+  /** Change in price per ping per floor above the ground floor; null with too few sales. */
+  floorPremium: number | null;
+  rent: { from: string; leases: number; medianRentPerPing: number | null; medianMonthlyRent: number | null; grossYield: number | null } | null;
+  nearby: NearbyCommunity[];
+  /** Every sale, latest first. */
+  sales: TransactionData[];
+}
+
+export interface RankedCommunity extends Community {
+  recentSales: number;
+  medianPricePerPing: number | null;
+}
+
+/** A district's communities with the most market sales over the last 12 complete months. */
+export interface CommunityRanking {
+  cityCode: string;
+  district: string;
+  from: string;
+  through: string;
+  communities: RankedCommunity[];
+}
+
 export interface InvestmentQuery {
   city: string;
   type: BuildingType;
@@ -548,12 +667,14 @@ export interface InvestmentLiquidityReport {
 }
 
 export interface Place {
-  kind: "district" | "road" | "address" | "station";
+  kind: "district" | "road" | "address" | "station" | "community";
   label: string;
   lat: number;
   lng: number;
   /** Set for stations, e.g. TRTC-BL07. */
   stationId?: string;
+  /** Set for communities. */
+  communityId?: string;
 }
 
 export interface TransactionQuery {
@@ -622,6 +743,8 @@ export interface CellDetail {
   priceYoY: number | null;
   yoyThrough: string;
   ageMix: { key: "0-5" | "5-15" | "15-30" | "30+" | "unknown"; count: number }[];
+  /** The communities with the most sales in the cell, the most first; absent without an API. */
+  communities?: CommunityRef[];
 }
 
 /** GeoJSON FeatureCollection of district areas approximated from door numbers. */
@@ -866,6 +989,8 @@ export interface TransactionAPI {
   investmentLiquidity(query: InvestmentQuery, signal?: AbortSignal): Promise<InvestmentLiquidityReport>;
   /** Rents and gross yields by district over the last 12 complete months. */
   rentalDistricts(query: RentalQuery, signal?: AbortSignal): Promise<RentalReport>;
+  /** Rents and gross yields by H3 cell inside the query's bbox, using its types and area. */
+  rentLayer(query: TransactionQuery, resolution: number, signal?: AbortSignal): Promise<RentLayer>;
   /** The city's and, when given, a district's rent trend over five years. */
   rentalTrend(query: RentalQuery, district: string, signal?: AbortSignal): Promise<RentTrend>;
   facilities(bbox: BBox, categories: string[], signal?: AbortSignal): Promise<FacilityList>;
@@ -875,6 +1000,9 @@ export interface TransactionAPI {
   /** Presale projects of a city with a contract in the last months months, or near a point. */
   presaleProjects(query: { city: string; district?: string; months: number; near?: { lat: number; lng: number; radius: number }; bbox?: BBox }, signal?: AbortSignal): Promise<PresaleProjects>;
   presaleProject(key: string, signal?: AbortSignal): Promise<PresaleProjectDetail>;
+  community(id: string, signal?: AbortSignal): Promise<CommunityDetail>;
+  /** A district's busiest communities over the last 12 complete months. */
+  communityRanking(city: string, district: string, signal?: AbortSignal): Promise<CommunityRanking>;
   /** Values a home from comparable sales nearby. */
   estimate(query: EstimateQuery, signal?: AbortSignal): Promise<Estimate>;
   /** Recorded sales of the building at an address, to fill in the estimate form. */

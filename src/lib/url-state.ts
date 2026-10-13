@@ -1,10 +1,10 @@
 import { BUILDING_TYPES, FEED_SORTS, type BuildingType, type FeedSort } from "./api/types";
 import { tabAvailable } from "./demo";
 
-export const TABS = ["map", "analysis", "districts", "area", "investment", "rents", "estimate", "presales", "feed", "stations"] as const;
+export const TABS = ["map", "analysis", "districts", "area", "investment", "rents", "estimate", "presales", "feed", "stations", "community"] as const;
 export type Tab = (typeof TABS)[number];
 
-const TAB_PATHS: Record<Tab, string> = { map: "/", analysis: "/analysis", districts: "/districts", area: "/area", investment: "/investment", rents: "/rents", estimate: "/estimate", presales: "/presales", feed: "/feed", stations: "/stations" };
+const TAB_PATHS: Record<Tab, string> = { map: "/", analysis: "/analysis", districts: "/districts", area: "/area", investment: "/investment", rents: "/rents", estimate: "/estimate", presales: "/presales", feed: "/feed", stations: "/stations", community: "/community" };
 
 /** Where the app is served, without the trailing slash: "" at the root, "/geo-prophet-public" for the demo. */
 export const BASE_PATH = import.meta.env.BASE_URL.replace(/\/+$/, "");
@@ -99,6 +99,8 @@ export interface AppState {
   estimate: EstimateState;
   presales: PresalesState;
   area: AreaState;
+  /** The open community's ID, e.g. 3d2801a712dc. */
+  community: string;
 }
 
 export const DEFAULT_STATE: AppState = {
@@ -118,6 +120,7 @@ export const DEFAULT_STATE: AppState = {
   estimate: { address: "", lat: null, lng: null, type: "住宅大樓", area: null, age: null, floor: 0, totalFloors: 0, parking: false },
   presales: { city: "a", district: "", months: 24, sort: "sales", project: "" },
   area: { city: "a", district: "" },
+  community: "",
 };
 
 /** A non-negative number from a URL parameter within max, or null. */
@@ -146,7 +149,9 @@ export function parseAppState(pathname: string, search: string): AppState {
   const params = new URLSearchParams(search);
   const path = (pathname.startsWith(BASE_PATH) ? pathname.slice(BASE_PATH.length) : pathname).replace(/\/+$/, "") || "/";
   const named = (Object.entries(TAB_PATHS).find(([, tabPath]) => tabPath === path)?.[0] ?? "map") as Tab;
-  const tab = tabAvailable(named) ? named : "map";
+  const community = /^[0-9a-f]{12}$/.test(params.get("id") ?? "") ? params.get("id")! : "";
+  // A community page needs its ID; without one, the map opens.
+  const tab = tabAvailable(named) && (named !== "community" || community) ? named : "map";
   const types = params.get("types")?.split(",").filter((type): type is BuildingType => (BUILDING_TYPES as readonly string[]).includes(type));
   const month = params.get("month");
   const resolution = Number(params.get("res"));
@@ -203,6 +208,7 @@ export function parseAppState(pathname: string, search: string): AppState {
       includeSocial: params.get("rs") === "1",
       district: params.get("rd") ?? "",
     },
+    community,
   };
 }
 
@@ -286,6 +292,7 @@ export function formatAppState(state: AppState): string {
   if (rents.areaBand) params.set("ra", String(rents.areaBand));
   if (rents.includeSocial) params.set("rs", "1");
   if (rents.district) params.set("rd", rents.district);
+  if (state.tab === "community" && state.community) params.set("id", state.community);
   const { lat, lng, zoom } = state.view;
   params.set("at", `${lat.toFixed(4)},${lng.toFixed(4)},${zoom.toFixed(2)}`);
   const query = params.toString().replace(/%2C/g, ",");

@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/geo-prophet/geo-prophet/api/internal/domain"
@@ -69,10 +70,10 @@ func (service *TransactionService) CellDetail(ctx context.Context, filter domain
 		return domain.CellDetail{}, err
 	}
 
-	detail := domain.CellDetail{Hex: cell.String(), YoYThrough: end.Format("2006-01"), AgeMix: []domain.AgeBucket{}}
+	detail := domain.CellDetail{Hex: cell.String(), YoYThrough: end.Format("2006-01"), AgeMix: []domain.AgeBucket{}, Communities: []domain.CommunityRef{}}
 	var totalPrice, buildingPrice int64
 	var area float64
-	districts, roads, ages := map[string]int{}, map[string]int{}, map[string]int{}
+	districts, roads, ages, communities := map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}
 	var current, previous struct {
 		count int
 		price int64
@@ -101,6 +102,9 @@ func (service *TransactionService) CellDetail(ctx context.Context, filter domain
 			roads[address.Road]++
 		}
 		ages[ageKey(row.BuildingAge)]++
+		if row.CommunityID != "" {
+			communities[row.CommunityID]++
+		}
 	}
 
 	if detail.Count > 0 {
@@ -114,11 +118,28 @@ func (service *TransactionService) CellDetail(ctx context.Context, filter domain
 		for _, key := range ageMixKeys {
 			detail.AgeMix = append(detail.AgeMix, domain.AgeBucket{Key: key, Count: ages[key]})
 		}
+		detail.Communities = topCommunities(communities, cellCommunities)
 	}
 	if current.count >= minYoYSales && previous.count >= minYoYSales && current.area > 0 && previous.area > 0 {
 		detail.PriceYoY = change(float64(current.price)/current.area, float64(previous.price)/previous.area)
 	}
 	return detail, nil
+}
+
+// topCommunities links the communities with the most sales, the most first, by ID on a
+// tie; names are filled in by CommunityService.Describe.
+func topCommunities(counts map[string]int, limit int) []domain.CommunityRef {
+	refs := make([]domain.CommunityRef, 0, len(counts))
+	for id, sales := range counts {
+		refs = append(refs, domain.CommunityRef{ID: id, Sales: sales})
+	}
+	sort.Slice(refs, func(i, j int) bool {
+		if refs[i].Sales != refs[j].Sales {
+			return refs[i].Sales > refs[j].Sales
+		}
+		return refs[i].ID < refs[j].ID
+	})
+	return refs[:min(limit, len(refs))]
 }
 
 func ageKey(age *int) string {

@@ -90,7 +90,7 @@ func (repository *TransactionRepository) NearbyPresaleProjects(ctx context.Conte
 func (repository *TransactionRepository) BoundedPresaleProjects(ctx context.Context, bounds domain.Bounds, from, recentFrom time.Time) ([]domain.PresaleProject, error) {
 	sql := `SELECT ` + projectColumns + `
         FROM presale_projects p JOIN presales s ON s.project_key = p.project_key
-        WHERE p.location && ST_MakeEnvelope($3, $4, $5, $6, 4326)::geography AND p.geocode_precision IN ('address', 'nearby', 'road')
+        WHERE ` + withinBounds("p.location", "ST_MakeEnvelope($3, $4, $5, $6, 4326)") + ` AND p.geocode_precision IN ('address', 'nearby', 'road')
         GROUP BY p.project_key
         HAVING MAX(s.transacted_on) >= $1
         ORDER BY MAX(s.transacted_on) DESC, p.project_key

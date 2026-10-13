@@ -67,6 +67,17 @@ describe("URL state", () => {
     expect(parseAppState("/estimate", "?elat=25&earea=-3&eage=x&etype=其他").estimate).toEqual(DEFAULT_STATE.estimate);
   });
 
+  it("opens a community by its ID, and the map without one", () => {
+    const state = { ...DEFAULT_STATE, tab: "community" as const, community: "3d2801a712dc" };
+    const url = formatAppState(state);
+    expect(url).toMatch(/^\/community\?id=3d2801a712dc&/);
+    expect(parseAppState("/community", url.slice(url.indexOf("?")))).toEqual(state);
+    expect(parseAppState("/community", "?id=nope").tab).toBe("map");
+    expect(parseAppState("/community", "").tab).toBe("map");
+    // Other pages do not carry the community.
+    expect(formatAppState({ ...state, tab: "area" })).not.toContain("id=");
+  });
+
   it("shares the presale filters and the open project", () => {
     const state = { ...DEFAULT_STATE, tab: "presales" as const,
       presales: { city: "a" as const, district: "文山區", months: 60 as const, sort: "price" as const, project: "a|文山區|元利四季莊園" } };

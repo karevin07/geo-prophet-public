@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AlertCircle, Building2, Calculator, Info, ListOrdered, Ruler, RotateCw } from "lucide-react";
+import { AlertCircle, ArrowRight, Building2, Calculator, Info, ListOrdered, Ruler, RotateCw } from "lucide-react";
 import type { BuildingProfile, Estimate, EstimateQuery, RentEstimate, TransactionAPI } from "../../lib/api";
 import { formatRent, formatYield } from "../../lib/rent";
 import { useLanguage } from "../../lib/i18n";
@@ -18,6 +18,8 @@ interface Props {
   state: EstimateState;
   onChange: (update: Partial<EstimateState>) => void;
   fetchNearbyFacilities?: FetchNearbyFacilities;
+  /** Opens the community of the address, when it has one. */
+  onShowCommunity?: (id: string) => void;
 }
 
 /** The query for a complete form, or null while the address or area is missing. */
@@ -34,7 +36,7 @@ function wanTotal(value: number | null): string {
   return value === null ? "—" : formatWan(value, 0);
 }
 
-export default function EstimatePage({ api, state, onChange, fetchNearbyFacilities }: Props) {
+export default function EstimatePage({ api, state, onChange, fetchNearbyFacilities, onShowCommunity }: Props) {
   const { t } = useLanguage();
   // The estimate runs for the submitted form: on 估價, or at once for a shared link.
   const [submitted, setSubmitted] = useState<EstimateQuery | null>(() => toQuery(state));
@@ -122,14 +124,23 @@ export default function EstimatePage({ api, state, onChange, fetchNearbyFaciliti
             <SearchBox api={api} kinds={["address"]} initialText={state.address} placeholder={t("estimate.addressPlaceholder")}
               onSelect={(place) => onChange({ address: place.label, lat: place.lat, lng: place.lng, age: null, totalFloors: 0 })} />
             {profile && profile.address === building(state.address) && (
-              <p className="mt-2 flex gap-2 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 text-xs text-brand-700">
-                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                {profile.sales > 0 ? fill(t("estimate.profile"), {
-                  count: profile.sales,
-                  details: [profile.category, profile.completedYear && fill(t("estimate.profile.year"), { year: profile.completedYear }),
-                    profile.totalFloors && fill(t("estimate.profile.floors"), { floors: profile.totalFloors })].filter(Boolean).join("、"),
-                }) : t("estimate.profile.none")}
-              </p>
+              <div className="mt-2 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 text-xs text-brand-700">
+                <p className="flex gap-2">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {profile.sales > 0 ? fill(t("estimate.profile"), {
+                    count: profile.sales,
+                    details: [profile.category, profile.completedYear && fill(t("estimate.profile.year"), { year: profile.completedYear }),
+                      profile.totalFloors && fill(t("estimate.profile.floors"), { floors: profile.totalFloors })].filter(Boolean).join("、"),
+                  }) : t("estimate.profile.none")}
+                </p>
+                {profile.community && onShowCommunity && (
+                  <button type="button" onClick={() => onShowCommunity(profile.community!.id)}
+                    className="mt-1.5 flex items-center gap-1 pl-5.5 font-medium text-brand-700 hover:underline">
+                    {fill(t("estimate.community"), { name: profile.community.name || profile.community.address })}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
           <div>

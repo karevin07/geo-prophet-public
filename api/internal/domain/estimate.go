@@ -103,6 +103,8 @@ type BuildingProfile struct {
 	CompletedYear *int   `json:"completedYear"`
 	TotalFloors   *int   `json:"totalFloors"`
 	LastSale      string `json:"lastSale"` // YYYY-MM-DD, empty without sales
+	// Community is the community at the door number, if any.
+	Community *CommunityRef `json:"community"`
 }
 
 // LeaseCandidate is a whole-home lease near a home, as stored.
