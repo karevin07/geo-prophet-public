@@ -13,7 +13,7 @@
 
 **[▶ Live demo](https://karevin07.github.io/geo-prophet-public/)**: three years of Taipei's actual price registration, refreshed weekly. Try the map, market analysis, district comparison, area overview and latest sales without installing anything; estimates, rents, presales and stations need the API, so run them locally.
 
-Explore Taiwan's registered sales, leases, and presale transactions alongside address coordinates, rail stations, and nearby facilities. View sales on a map, follow price trends, compare districts, and estimate the price and rent of a single address.
+GeoProphet maps Taiwan's registered sales, leases, and presale transactions, together with address coordinates, rail stations, and nearby facilities. Use it to look up sales, follow price trends, compare districts, and estimate a home's price and rent.
 
 Go downloads and imports the data, PostgreSQL/PostGIS stores and queries it, and React displays maps and charts.
 
@@ -58,7 +58,9 @@ make docker
 make import-city CITY=a SEASON=114S3-115S2
 ```
 
-Then open <http://localhost:3100>. New Taipei is `f` and Taoyuan is `h`; `CITY=a,f,h` imports all three. `SEASON` takes one season (`115S2`) or a range, and more seasons take longer to download and import. One year, as above (about 5 minutes for Taipei), is enough for the map and market pages; estimates use the last three years of sales, so use `SEASON=112S3-115S2` for them. Rail stations need a TDX key; see [Data import](docs/DATA_IMPORT.md#大眾運輸站點). Check the [data licenses](docs/DATA_SOURCES.md) before downloading.
+Then open <http://localhost:3100>. New Taipei is `f` and Taoyuan is `h`; `CITY=a,f,h` imports all three. `SEASON` takes one season (`115S2`) or a range. More seasons take longer to download and import.
+
+One year is enough for the map and market pages; the example above takes about 5 minutes for Taipei. Estimates use the last three years of sales, so use `SEASON=112S3-115S2` for them. Rail stations need a TDX key; see [Data import](docs/DATA_IMPORT.md#大眾運輸站點). Check the [data licenses](docs/DATA_SOURCES.md) before downloading.
 
 ## Documentation
 

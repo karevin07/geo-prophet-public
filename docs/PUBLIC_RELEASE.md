@@ -1,6 +1,6 @@
 # Public release policy
 
-這是獨立的公開快照，不是開發 repo 的完整 mirror，也不包含其 Git 歷史。公開版應作為受控發布目的地，不作雙向獨立開發來源。
+這份 repo 是從開發版本整理出的公開快照，不是完整 mirror，也不包含開發 repo 的 Git 歷史。修改先在開發版本完成，再帶到這裡；不要讓兩份 repo 各自開發不同的版本。
 
 ## Included
 
@@ -11,7 +11,7 @@
 - 原始 Git 歷史、遠端設定、環境檔、下載資料、備份、cache 與 build output 不匯出。
 - 架構發布 workflow、跨 repo GitHub App 設定、部署主機資訊、私有架構圖來源連結不匯出。
 - 政府 CSV 與 TDX JSON fixture 不匯出；CSV parser／importer 改用合成資料，TDX loader 改用合成 getter。
-- README、架構、操作指令與 Compose 為公開用途重新整理；沒有聲稱完全相同的測試覆蓋或部署能力。
+- README、架構、操作指令與 Compose 已按公開用途調整，測試覆蓋與部署能力不一定和開發版相同。
 - 前端 mock 模式略過管理身分探測，不呼叫本機或正式管理 API。
 
 ## Publication checklist
@@ -23,6 +23,6 @@
 5. 確認 `.env`、備份、真實 fixture、私有發布權限未出現在 commit。
 6. 人工確認後再建立公開 commit、設定 GitHub remote 與推送。
 
-首次公開前仍建議使用專業 secret scanner 檢查工作樹與將發布的歷史。白名單匯出與簡單樣式檢查不是完整安全稽核。
+首次公開前，建議用專業 secret scanner 檢查工作樹與要發布的 Git 歷史。白名單匯出和簡單樣式檢查不能取代完整安全稽核。
 
-後續外部修正先帶回主要開發版本，再重新匯出公開版。匯出工具與來源 commit 對照可留在非公開維運流程中，避免公開內容耦合內部路徑或 repo。
+外部修正先帶回主要開發版本，再重新匯出。匯出工具與來源 commit 對照可留在非公開維運流程，不讓公開內容依賴內部路徑或 repo。

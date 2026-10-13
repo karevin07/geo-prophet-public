@@ -1,12 +1,14 @@
 # Access boundary
 
-公開原始碼與公開正式服務是兩件事。這個 repo 不附正式環境的帳號、主機位址、憑證或存取設定。
+Repo 公開原始碼，但不附正式環境的帳號、主機位址、憑證或存取設定，也不代表提供公開的正式服務。
 
 ## 後台
 
-開發系統以可信的 Tailscale reverse proxy 身分標頭判斷管理者。API 以 `ADMIN_LOGINS` allowlist 判斷權限；一般 nginx port 80 移除外部送入的身分標頭。只有由可信 proxy 使用的 port 81 可保留身分標頭，該埠不應對外公開。
+開發系統使用可信的 Tailscale reverse proxy 提供身分標頭，API 再以 `ADMIN_LOGINS` 允許名單判斷管理權限。一般 nginx port 80 會移除外部送入的身分標頭；port 81 才保留，只能給可信 proxy 使用，不應對外公開。
 
-公開 Compose 不發布 port 81，且 `ADMIN_LOGINS` 為空，沒有任何管理者，因此 `/admin` 功能不屬於可直接操作的 Demo。不要為了展示而對外提供可偽造的管理者標頭或關閉身分驗證。需要部署管理端時，必須自行設定可信 proxy、網路邊界、allowlist 與工作執行服務；不在本機 Demo 的支援範圍內。
+公開 Compose 不發布 port 81，`ADMIN_LOGINS` 也為空，所以預設沒有人能使用 `/admin`。不要為了展示而接受可偽造的管理者標頭，或關閉身分驗證。
+
+若要部署管理端，必須另外設定可信 proxy、網路存取限制、允許名單與工作執行服務；本機 Demo 不包含這些設定。
 
 ## 本機 Demo
 

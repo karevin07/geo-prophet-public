@@ -23,7 +23,7 @@ cp .env.example .env
 make docker
 ```
 
-開啟 <http://localhost:3100>；若前端 dev server 還在執行，先關掉它。這組容器有自己的資料卷，只有 web 綁定本機埠號，API 和資料庫不直接對外。
+開啟 <http://localhost:3100>。如果前端 dev server 還在執行，先關掉它。這組容器使用自己的資料卷，只有 web 綁定本機埠號，API 和資料庫不直接對外。
 
 第一次啟動是空資料庫，不會自動下載或同步資料。接著依 [匯入指令](docs/DATA_IMPORT.md) 加入資料。管理頁預設無法存取，設定方式見 [存取說明](docs/ACCESS_BOUNDARY.md)。
 

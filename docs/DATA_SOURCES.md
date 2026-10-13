@@ -12,8 +12,8 @@
 | Mock 行情 | 程式生成的展示數據，不是官方或實際成交行情 |
 | 線上 Demo | GitHub Pages 部署時從上述官方來源產生台北市近 3 年的成交、租金與預售統計和生活機能統計，只存在部署裡、不進 git；頁面標示實價登錄（政府資料開放授權）及 OpenStreetMap、健保署、教育部來源。見 [線上 Demo](DEMO.md) |
 
-合成道路、編號與建案只供測試，不應用來定位真實物件。部分單元測試使用公開地名來驗證字串規則；這不代表包含完整官方資料集。
+合成的道路、編號與建案只供測試，不能用來定位真實物件。部分單元測試用公開地名驗證字串規則，但不包含完整官方資料集。
 
-若自行匯入真實資料，請逐一查閱資料集的來源頁與再散布條款，記錄版本、取得時間及必要署名。此文件不宣稱已完成所有來源的再散布授權審查；公開 repo 刻意不包含下載資料。
+自行匯入真實資料時，請逐一查看來源頁與再散布條款，記錄資料版本、取得時間和必要署名。這份文件不代表所有來源的再散布授權都已審查；公開 repo 刻意不包含下載資料。
 
 參考：[政府資料開放授權](https://data.gov.tw/license)、[內政部實價登錄](https://lvr.land.moi.gov.tw/)、[TDX](https://tdx.transportdata.tw/)、[OSM copyright / ODbL](https://www.openstreetmap.org/copyright)、[CARTO attribution](https://carto.com/attributions)。

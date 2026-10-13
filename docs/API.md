@@ -1,6 +1,6 @@
 # GeoProphet HTTP API
 
-GeoProphet API 由 Gin 提供，預設監聽 `:8080`。Docker 部署時瀏覽器應透過 web container 的同源 `/api` reverse proxy 存取，不需直接暴露 API port。
+GeoProphet 使用 Gin 提供 API，預設監聽 `:8080`。Docker 部署時，瀏覽器透過 web container 同源的 `/api` reverse proxy 呼叫 API，不需直接發布 API port。
 
 回到 [文件索引](README.md)。
 
@@ -35,7 +35,7 @@ GeoProphet API 由 Gin 提供，預設監聽 `:8080`。Docker 部署時瀏覽器
 
 後台 API 位於 `/api/v1/admin/*`，只接受 API 環境變數 `ADMIN_LOGINS` 中的 Tailscale 帳號。身分取自可信的 `tailscale serve` proxy 加上的 `Tailscale-User-Login` 標頭（見 [ACCESS_BOUNDARY.md](ACCESS_BOUNDARY.md#後台)）；其他人得到 `403 forbidden`，未使用資料庫時為 `503 not_available`。
 
-公開 Compose 將 `ADMIN_LOGINS` 固定為空，也沒有啟動常駐 importer 或備份服務；只修改 `.env` 不會開啟後台。以下是另行部署可信管理端後的 API 行為，不是預設 Demo 的操作步驟。
+公開 Compose 的 `ADMIN_LOGINS` 固定為空，也沒有啟動常駐 importer 或備份服務。只修改 `.env` 不會開啟後台。以下說明另行部署可信管理端後的 API 行為，不是預設 Demo 的操作步驟。
 
 ### 目前身分
 
@@ -88,7 +88,11 @@ PUT /api/v1/admin/openings   {"kind": "line", "targetId": "NTMC-Y", "openedOn": 
 GET /api/v1/admin/data-status
 ```
 
-回傳資料庫中的匯入概況，無查詢參數。`data.cities` 列出各縣市目前的成交總筆數、已有坐標的筆數、未來日期筆數（`futureDated`），以及不晚於資料庫今天日期的最新成交日；`recentRuns` 是最近 30 次匯入，`latestRuns` 是各資料集／縣市最後一次嘗試，`lastSuccessfulRuns` 是最後一次成功匯入。每筆紀錄有來源、資料集、期別、開始與結束時間、讀取／略過／upsert／定位失敗筆數；失敗的紀錄附錯誤全文（`error`），因此只開放給管理者。`lastSuccessfulRuns` 取每個資料集／縣市**期別最新**的成功紀錄，因此回補舊季度不會蓋過最新季度。
+回傳資料庫中的匯入概況，不接受查詢參數。`data.cities` 列出各縣市目前的成交總筆數、已有坐標的筆數、未來日期筆數（`futureDated`），以及不晚於資料庫今天日期的最新成交日。
+
+`recentRuns` 是最近 30 次匯入，`latestRuns` 是各資料集／縣市最後一次嘗試，`lastSuccessfulRuns` 是最後一次成功匯入。每筆紀錄包含來源、資料集、期別、開始與結束時間，以及讀取／略過／upsert／定位失敗筆數。失敗紀錄附錯誤全文（`error`），因此只開放給管理者。
+
+`lastSuccessfulRuns` 取每個資料集／縣市**期別最新**的成功紀錄；回補舊季度不會蓋過最新季度。
 
 失敗的紀錄另有 `errorKind`，由錯誤訊息歸類：`rate_limited`（來源限流）、`unauthorized`（憑證被拒）、`unpublished`（季資料尚未公布）、`missing_input`（缺少前置資料，例如門牌或 TDX 設定）、`download`、`parse`、`database` 或 `other`。開始超過 6 小時仍未結束的 `running` 紀錄以 `interrupted` 回傳，代表匯入程序中途停止。
 
