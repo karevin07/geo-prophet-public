@@ -285,8 +285,8 @@ TDX 沒有通車日期，因此 2015 年以後通車的路線與車站記錄在�
 
 - **分組**：`transactions` 與 `rentals` 的 `community_key` 是 generated column，由 `community_key()` 從地址、建物型態與完工日算出，匯入時自動產生。地址先去除空白與行政區後的里鄰（`clean_address()`），`121-1號` 視為 `121之1號`。
 - **社區表**：`communities` 每個社區一列（門牌、最常見型態、最高樓層、成交數、位置）。`UpsertTransactions` 在同一個交易裡以 `refresh_communities()` 重建這批成交新舊所屬的社區，所以修正後換了社區的成交也會更新。
-- **名稱**：`name_communities()` 以行政區為範圍，把預售建案名稱配給互為最佳配對的社區；匯入預售屋後會重新配對該建案所在行政區。`presale_projects` 因此多存 `door_number`、`street`、`first_contract` 與 `presales`。
-- **規模**：台北、新北、桃園共約 8.7 萬個社區，其中約 2 萬個有 10 筆以上成交，約 900 個配到建案名稱。
+- **名稱**：`name_communities()` 以行政區為範圍，把預售建案名稱配給互為最佳配對的社區；匯入預售屋後會重新配對該建案所在行政區。預售屋地址常是交叉口、棟別戶別（`元富一街A1-15F`）或地號，`address_streets()` 從中取出每一條路（含段、巷、弄），配對時也比較建案最高樓層（`total_floors`）與社區最高樓層。`presale_projects` 因此多存 `door_number`、`streets`、`first_contract`、`presales` 與 `total_floors`（migration `000020`）。
+- **規模**：台北、新北、桃園共約 8.7 萬個社區，其中約 2 萬個有 10 筆以上成交，約 1,750 個配到建案名稱；2022 年以後完工、10 筆以上成交的大樓與華廈約六成有名稱。
 - **限制**：同一路段同一天完工的不同建物會合併；同一社區若各棟完工日不同會分開；建案名稱配對是推算，少數可能配錯或配到同期的另一棟。
 
 ## 生活機能設施
